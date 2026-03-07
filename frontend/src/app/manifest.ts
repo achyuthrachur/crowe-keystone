@@ -1,0 +1,47 @@
+import type { MetadataRoute } from 'next';
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'Crowe Keystone',
+    short_name: 'Keystone',
+    description: 'AI-native operating system for AI building teams',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#0a0f1a',
+    theme_color: '#0a0f1a',
+    orientation: 'portrait',
+    categories: ['productivity', 'business'],
+    icons: [
+      {
+        src: '/keystone-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/keystone-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/keystone-96.png',
+        sizes: '96x96',
+        type: 'image/png',
+        purpose: 'monochrome',
+      },
+    ],
+    screenshots: [
+      {
+        src: '/screenshot-mobile.png',
+        sizes: '390x844',
+        type: 'image/png',
+      },
+      {
+        src: '/screenshot-desktop.png',
+        sizes: '1280x720',
+        type: 'image/png',
+      },
+    ],
+  };
+}
