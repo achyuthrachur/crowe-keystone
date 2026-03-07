@@ -1,9 +1,3 @@
-export interface PRDSection {
-  id: string;
-  title: string;
-  content: string;
-}
-
 export interface OpenQuestion {
   id: string;
   question: string;
@@ -72,7 +66,7 @@ export interface PRDContent {
   claude_code_prompt: string;
 }
 
-export interface PRDVersion {
+export interface PRD {
   id: string;
   project_id: string;
   version: number;
@@ -80,17 +74,28 @@ export interface PRDVersion {
   content: PRDContent;
   open_questions: OpenQuestion[];
   stress_test_results: StressTestResult | null;
-  assumption_audit: AssumptionAudit[] | null;
   claude_code_prompt: string | null;
   diff_from_previous: PRDDiff[] | null;
   word_count: number | null;
-  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
+
+// Keep PRDVersion as alias for backward compatibility
+export type PRDVersion = PRD & {
+  assumption_audit: AssumptionAudit[] | null;
+  created_by: string | null;
+};
 
 export interface PRDDiff {
   section: string;
   old: string;
   new: string;
+}
+
+// Kept for legacy use — single section shape used in older code
+export interface PRDSection {
+  id: string;
+  title: string;
+  content: string;
 }

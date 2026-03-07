@@ -1,15 +1,16 @@
 'use client';
 
-import { use } from 'react';
-import { motion } from 'framer-motion';
+import { use, useState, useEffect } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { pageVariants } from '@/lib/motion';
 import { MOCK_PROJECTS } from '@/lib/api';
 import { STAGE_COLORS, STAGE_LABELS, type Stage } from '@/lib/stage-colors';
 import { StageProgressBar } from '@/components/projects/StageProgressBar';
 import { AgentPanel } from '@/components/agents/AgentPanel';
+import { PRDEditor } from '@/components/prd/PRDEditor';
 import { useAgentStore } from '@/stores/agent.store';
 import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface ProjectDetailPageProps {
   params: Promise<{ id: string }>;
@@ -43,7 +44,30 @@ type Tab = typeof TABS[number];
 export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const shouldReduce = useReducedMotion();
   const activeRun = useAgentStore((s) => s.activeRunForProject(id));
+
+  // Tab state — read from ?tab= query param, default to 'prd'
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab');
+    return (TABS as readonly string[]).includes(tabParam ?? '') ? (tabParam as Tab) : 'prd';
+  });
+
+  // Sync tab state when query param changes externally
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && (TABS as readonly string[]).includes(tabParam)) {
+      setActiveTab(tabParam as Tab);
+    }
+  }, [searchParams]);
+
+  function handleTabChange(tab: Tab) {
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    router.replace(url.pathname + url.search, { scroll: false });
+  }
 
   const project = MOCK_PROJECTS.find((p) => p.id === id);
 
@@ -154,18 +178,23 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
             {TABS.map((tab) => (
               <button
                 key={tab}
+                onClick={() => handleTabChange(tab)}
                 style={{
                   height: 40,
                   padding: '0 16px',
                   background: 'none',
                   border: 'none',
-                  borderBottom: tab === 'prd' ? '2px solid var(--amber-core)' : '2px solid transparent',
-                  color: tab === 'prd' ? 'var(--amber-core)' : 'var(--text-secondary)',
+                  borderBottom:
+                    tab === activeTab
+                      ? '2px solid var(--amber-core)'
+                      : '2px solid transparent',
+                  color: tab === activeTab ? 'var(--amber-core)' : 'var(--text-secondary)',
                   fontSize: 14,
-                  fontWeight: tab === 'prd' ? 600 : 400,
+                  fontWeight: tab === activeTab ? 600 : 400,
                   fontFamily: 'var(--font-geist-sans)',
                   cursor: 'pointer',
                   textTransform: 'capitalize',
+                  transition: 'color 150ms, border-color 150ms',
                 }}
               >
                 {tab === 'prd' ? 'PRD' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -173,28 +202,80 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
             ))}
           </div>
 
-          {/* Tab content (Phase 1: PRD placeholder) */}
-          <div
-            style={{
-              padding: 20,
-              background: 'var(--surface-elevated)',
-              borderRadius: 10,
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <p
-              style={{
-                color: 'var(--text-secondary)',
-                fontSize: 14,
-                fontFamily: 'var(--font-geist-sans)',
-                margin: 0,
-              }}
-            >
-              {project.brief
-                ? project.brief.problem_statement
-                : 'No PRD content yet. Use the Stage Actions panel to generate a brief.'}
-            </p>
-          </div>
+          {/* Tab content */}
+          <AnimatePresence mode="wait">
+            {activeTab === 'prd' && (
+              <motion.div
+                key="tab-prd"
+                initial={shouldReduce ? undefined : { opacity: 0, y: 6 }}
+                animate={shouldReduce ? undefined : { opacity: 1, y: 0 }}
+                exit={shouldReduce ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+              >
+                <PRDEditor projectId={id} />
+              </motion.div>
+            )}
+
+            {activeTab === 'build' && (
+              <motion.div
+                key="tab-build"
+                initial={shouldReduce ? undefined : { opacity: 0, y: 6 }}
+                animate={shouldReduce ? undefined : { opacity: 1, y: 0 }}
+                exit={shouldReduce ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div
+                  style={{
+                    padding: 20,
+                    background: 'var(--surface-elevated)',
+                    borderRadius: 10,
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: 14,
+                      fontFamily: 'var(--font-geist-sans)',
+                      margin: 0,
+                    }}
+                  >
+                    Build log coming in Phase 5.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'retro' && (
+              <motion.div
+                key="tab-retro"
+                initial={shouldReduce ? undefined : { opacity: 0, y: 6 }}
+                animate={shouldReduce ? undefined : { opacity: 1, y: 0 }}
+                exit={shouldReduce ? undefined : { opacity: 0, y: -4 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div
+                  style={{
+                    padding: 20,
+                    background: 'var(--surface-elevated)',
+                    borderRadius: 10,
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <p
+                    style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: 14,
+                      fontFamily: 'var(--font-geist-sans)',
+                      margin: 0,
+                    }}
+                  >
+                    Retrospective view coming in Phase 5.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Right panel */}

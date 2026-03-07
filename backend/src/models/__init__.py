@@ -8,6 +8,7 @@ from src.models.agent_run import AgentRun  # noqa: F401
 from src.models.push_subscription import PushSubscription  # noqa: F401
 from src.models.approval import Approval  # noqa: F401
 from src.models.conflict import Conflict  # noqa: F401
+from src.models.prd import Prd  # noqa: F401
 
 __all__ = [
     "Team",
@@ -17,4 +18,5 @@ __all__ = [
     "PushSubscription",
     "Approval",
     "Conflict",
+    "Prd",
 ]

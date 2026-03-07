@@ -13,7 +13,7 @@ from src.routers.auth import get_current_user
 from src.routers.stream import broadcast_to_team
 from src.schemas.approval import ApprovalResponse
 from src.schemas.project import ProjectCreate, ProjectListItem, ProjectResponse, ProjectUpdate
-from src.services import approval_service, push_service
+from src.services import approval_service, prd_service, push_service
 from src.services.project_service import (
     archive_project,
     create_project,
@@ -194,6 +194,23 @@ async def advance_project_stage(
                 f"This transition is not permitted."
             ),
         )
+
+    # Guard: advancing into 'review' is blocked if the PRD has unanswered blocking questions
+    if body.target_stage == "review":
+        current_prd = await prd_service.get_current_prd(db, project.id)
+        if current_prd is not None and prd_service.has_blocking_open_questions(current_prd):
+            blocking_count = sum(
+                1
+                for q in (current_prd.open_questions or [])
+                if q.get("blocking") is True and not q.get("answered", False)
+            )
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"Cannot advance: {blocking_count} blocking open "
+                    f"question{'s' if blocking_count != 1 else ''} must be answered first"
+                ),
+            )
 
     team_id_str = str(current_user.team_id)
 

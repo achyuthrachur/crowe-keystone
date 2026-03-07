@@ -1,27 +1,47 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { accordionVariants, agentDotVariants } from '@/lib/motion';
+import useSWR from 'swr';
+import { motion } from 'framer-motion';
+import { accordionVariants, agentDotVariants, tapVariants } from '@/lib/motion';
 import { STAGE_COLORS, STAGE_ORDER, STAGE_LABELS, type Stage } from '@/lib/stage-colors';
 import type { Project } from '@/lib/api';
+import { PRDAccordion, type PRD } from '@/components/prd/PRDAccordion';
+
+// ── SWR fetcher ──────────────────────────────────────────────────
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+
+async function prdFetcher(url: string): Promise<PRD | null> {
+  const res = await fetch(url, { credentials: 'include' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`PRD fetch error ${res.status}`);
+  return res.json() as Promise<PRD>;
+}
+
+// ── Props ────────────────────────────────────────────────────────
 
 interface MobileProjectDetailProps {
   project: Project;
 }
 
-const ACCORDION_SECTIONS = [
-  { id: 'problem', title: 'Problem Statement' },
-  { id: 'stories', title: 'User Stories' },
-  { id: 'requirements', title: 'Requirements' },
-  { id: 'stack', title: 'Stack & Architecture' },
-  { id: 'questions', title: 'Open Questions' },
-];
+// ── Component ────────────────────────────────────────────────────
 
 export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['problem']));
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['prd']));
   const currentStageIndex = STAGE_ORDER.indexOf(project.stage as Stage);
   const stageColor = STAGE_COLORS[project.stage as Stage];
+
+  // SWR fetch for PRD data — null when project has no PRD yet
+  const { data: prd, isLoading: prdLoading } = useSWR<PRD | null>(
+    `${BACKEND_URL}/api/v1/projects/${project.id}/prd`,
+    prdFetcher,
+    {
+      revalidateOnFocus: false,
+      // Treat 404 (null response) as valid — no retry needed
+      shouldRetryOnError: false,
+    }
+  );
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => {
@@ -37,7 +57,8 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
 
   return (
     <div style={{ paddingBottom: 24 }}>
-      {/* Stage progress dots */}
+
+      {/* ── Stage progress dots ──────────────────────────────── */}
       <div
         style={{
           padding: '12px 0',
@@ -48,7 +69,7 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
           {STAGE_ORDER.map((stage, index) => {
             const isCompleted = index < currentStageIndex;
-            const isCurrent = index === currentStageIndex;
+            const isCurrent   = index === currentStageIndex;
             return (
               <div
                 key={stage}
@@ -63,7 +84,11 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
                     ? 'var(--amber-core)'
                     : 'transparent',
                   border: `2px solid ${
-                    isCompleted ? 'var(--teal)' : isCurrent ? 'var(--amber-core)' : 'var(--border-default)'
+                    isCompleted
+                      ? 'var(--teal)'
+                      : isCurrent
+                      ? 'var(--amber-core)'
+                      : 'var(--border-default)'
                   }`,
                   flexShrink: 0,
                 }}
@@ -71,15 +96,23 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
             );
           })}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)' }}>
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-geist-sans)',
+          }}
+        >
           <span style={{ color: stageColor.text }}>{STAGE_LABELS[project.stage as Stage]}</span>
           {' · '}Stage {currentStageIndex + 1} of {STAGE_ORDER.length}
         </div>
       </div>
 
-      {/* Quick actions */}
+      {/* ── Quick actions ────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-        <button
+        <motion.button
+          variants={tapVariants}
+          whileTap="tap"
           style={{
             height: 44,
             borderRadius: 8,
@@ -90,11 +123,15 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
             fontWeight: 600,
             fontFamily: 'var(--font-geist-sans)',
             cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
           Advance Stage →
-        </button>
-        <button
+        </motion.button>
+
+        <motion.button
+          variants={tapVariants}
+          whileTap="tap"
           style={{
             height: 44,
             borderRadius: 8,
@@ -104,86 +141,195 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
             fontSize: 14,
             fontFamily: 'var(--font-geist-sans)',
             cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
           Log Update
-        </button>
+        </motion.button>
       </div>
 
-      {/* Accordion sections */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {ACCORDION_SECTIONS.map((section) => {
-          const isOpen = openSections.has(section.id);
-          return (
-            <div
-              key={section.id}
+      {/* ── PRD Accordion section ────────────────────────────── */}
+      <div
+        style={{
+          borderRadius: 10,
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--surface-elevated)',
+          overflow: 'hidden',
+          marginBottom: 4,
+        }}
+      >
+        {/* PRD section header */}
+        <motion.button
+          variants={tapVariants}
+          whileTap="tap"
+          onClick={() => toggleSection('prd')}
+          style={{
+            width: '100%',
+            minHeight: 48,
+            paddingLeft: 16,
+            paddingRight: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            gap: 8,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          aria-expanded={openSections.has('prd')}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <motion.span
+              animate={{ rotate: openSections.has('prd') ? 90 : 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              style={{ fontSize: 10, color: 'var(--text-tertiary)', lineHeight: 1 }}
+            >
+              ▶
+            </motion.span>
+            <span
               style={{
-                borderRadius: 10,
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--surface-elevated)',
-                overflow: 'hidden',
+                fontSize: 14,
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-geist-sans)',
               }}
             >
-              <button
-                onClick={() => toggleSection(section.id)}
+              PRD
+            </span>
+            {prd && (
+              <span
                 style={{
-                  width: '100%',
-                  height: 44,
-                  padding: '0 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'var(--text-tertiary)',
+                  fontFamily: 'var(--font-geist-mono)',
+                  background: 'var(--surface-input)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 5,
+                  padding: '1px 5px',
                 }}
               >
-                <span
+                v{prd.version}
+              </span>
+            )}
+          </div>
+
+          {prdLoading && (
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              {[0, 1, 2].map((i) => (
+                <motion.span
+                  key={i}
+                  variants={agentDotVariants}
+                  animate="animate"
                   style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-geist-sans)',
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    background: 'var(--amber-core)',
+                    display: 'block',
+                    transition: `animation-delay ${i * 0.15}s`,
+                  }}
+                  custom={i}
+                  transition={{ delay: i * 0.15 }}
+                />
+              ))}
+            </div>
+          )}
+        </motion.button>
+
+        {/* PRD expandable content */}
+        {openSections.has('prd') && (
+          <motion.div
+            key="prd-content"
+            variants={accordionVariants}
+            initial="collapsed"
+            animate="expanded"
+            exit="collapsed"
+            style={{ overflow: 'hidden' }}
+          >
+            <div
+              style={{
+                borderTop: '1px solid var(--border-subtle)',
+                padding: '12px 12px',
+              }}
+            >
+              {prdLoading ? (
+                // Skeleton placeholder while loading
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[80, 60, 70].map((w, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        height: 44,
+                        borderRadius: 8,
+                        background: 'var(--surface-input)',
+                        width: `${w}%`,
+                        opacity: 0.6,
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : prd ? (
+                <PRDAccordion prd={prd} projectId={project.id} />
+              ) : (
+                // No PRD yet — show Generate CTA
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 12,
+                    paddingTop: 8,
+                    paddingBottom: 8,
                   }}
                 >
-                  {isOpen ? '▼' : '▶'}{' '}
-                  {section.title}
-                </span>
-              </button>
-
-              <AnimatePresence initial={false}>
-                {isOpen && (
-                  <motion.div
-                    variants={accordionVariants}
-                    initial="collapsed"
-                    animate="expanded"
-                    exit="collapsed"
-                    style={{ overflow: 'hidden' }}
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: 'var(--text-tertiary)',
+                      fontFamily: 'var(--font-geist-sans)',
+                      textAlign: 'center',
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}
                   >
-                    <div
-                      style={{
-                        padding: '0 12px 12px',
-                        fontSize: 13,
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-geist-sans)',
-                        lineHeight: 1.6,
-                        borderTop: '1px solid var(--border-subtle)',
-                        paddingTop: 12,
-                      }}
-                    >
-                      {project.brief
-                        ? section.id === 'problem'
-                          ? project.brief.problem_statement
-                          : `No ${section.title.toLowerCase()} defined yet.`
-                        : `No ${section.title.toLowerCase()} defined yet. Run an agent to populate this section.`}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                    No PRD exists for this project yet.
+                    <br />
+                    Generate one to unlock full planning.
+                  </p>
+
+                  {/* Generate Full PRD — stub button. Phase 5 wires the agent trigger. */}
+                  <motion.button
+                    variants={tapVariants}
+                    whileTap="tap"
+                    style={{
+                      height: 44,
+                      width: '100%',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: 'var(--amber-core)',
+                      color: 'var(--text-inverse)',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      fontFamily: 'var(--font-geist-sans)',
+                      cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      boxShadow: '0 4px 16px rgba(245,168,0,0.20)',
+                    }}
+                    onClick={() => {
+                      // TODO Phase 5: POST /api/v1/agents/run with agent_type='prd_architect'
+                    }}
+                  >
+                    Generate Full PRD
+                  </motion.button>
+                </div>
+              )}
             </div>
-          );
-        })}
+          </motion.div>
+        )}
       </div>
+
     </div>
   );
 }
