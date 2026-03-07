@@ -20,6 +20,11 @@ from src.routers import approvals, auth, conflicts, health, projects, prds, push
 from src.routers import graph as graph_router
 from src.routers import agents as agents_router
 from src.routers import daily as daily_router
+from src.routers import memory as memory_router
+from src.routers import retrospectives as retro_router
+from src.routers import decisions as decisions_router
+from src.routers import team as team_router
+from src.routers import webhooks as webhooks_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -187,6 +192,11 @@ app.include_router(stream.router, prefix=API_PREFIX)
 app.include_router(graph_router.router, prefix=API_PREFIX)
 app.include_router(agents_router.router, prefix=API_PREFIX)
 app.include_router(daily_router.router, prefix=API_PREFIX)
+app.include_router(memory_router.router, prefix=API_PREFIX)
+app.include_router(retro_router.router, prefix=API_PREFIX)
+app.include_router(decisions_router.router, prefix=API_PREFIX)
+app.include_router(team_router.router, prefix=API_PREFIX)
+app.include_router(webhooks_router.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

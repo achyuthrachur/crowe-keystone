@@ -9,6 +9,8 @@ from src.models.push_subscription import PushSubscription  # noqa: F401
 from src.models.approval import Approval  # noqa: F401
 from src.models.conflict import Conflict  # noqa: F401
 from src.models.prd import Prd  # noqa: F401
+from src.models.decision import Decision  # noqa: F401
+from src.models.retrospective import Retrospective  # noqa: F401
 
 __all__ = [
     "Team",
@@ -19,4 +21,6 @@ __all__ = [
     "Approval",
     "Conflict",
     "Prd",
+    "Decision",
+    "Retrospective",
 ]

@@ -9,7 +9,7 @@ See: .planning/PROJECT.md (updated 2026-03-07)
 
 ## Current Phase
 
-**Phase 6: Agent Integration**
+**Phase 7: Integrations + Memory + Settings**
 
 Status: PENDING
 Started: —
@@ -25,7 +25,7 @@ Phase 2 goal: Full stage graph. Stage advance creates approvals. Approvals visib
 | Phase 3: Living PRD System | ✓ Complete | 2026-03-07 |
 | Phase 4: React Flow Graph | ✓ Complete | 2026-03-07 |
 | Phase 5: LangGraph Engine | ✓ Complete | 2026-03-07 |
-| Phase 6: Agent Integration | ○ Pending | — |
+| Phase 6: Agent Integration | ✓ Complete | 2026-03-07 |
 | Phase 7: Integrations + Memory + Settings | ○ Pending | — |
 | Phase 8: Polish + Performance + Production | ○ Pending | — |
 

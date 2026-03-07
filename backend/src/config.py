@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Conflict detection threshold (cosine similarity)
     CONFLICT_THRESHOLD: float = 0.75
 
+    # GitHub webhook secret (optional — if set, validates X-Hub-Signature-256)
+    GITHUB_WEBHOOK_SECRET: str = ""
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_allowed_origins(cls, v: str) -> str:
