@@ -3,9 +3,9 @@ import type { Approval } from '@/types/approval.types';
 
 export interface Notification {
   id: string;
-  type: 'approval' | 'urgent' | 'info' | 'conflict' | 'agent_checkpoint';
+  type: 'approval' | 'urgent' | 'info' | 'error' | 'warning' | 'conflict' | 'agent_checkpoint';
   title: string;
-  body: string;
+  body?: string;
   read: boolean;
   created_at: string;
   url?: string;
@@ -24,9 +24,8 @@ interface NotificationsState {
 }
 
 function computePendingCount(notifications: Notification[]): number {
-  return notifications.filter(
-    (n) => !n.read && (n.type === 'approval' || n.type === 'urgent' || n.type === 'conflict')
-  ).length;
+  // pendingCount = unread approvals only (type === 'approval' && !read)
+  return notifications.filter((n) => !n.read && n.type === 'approval').length;
 }
 
 export const useNotificationStore = create<NotificationsState>((set) => ({

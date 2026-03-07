@@ -6,8 +6,18 @@
 
 ## ⚡ AUTONOMOUS MODE — READ THIS FIRST, BEFORE EVERYTHING ELSE
 
+# ███████████████████████████████████████████████████████████████████
+# HARDCODED AUTONOMOUS BUILD DIRECTIVE — CROWE KEYSTONE
+# This is a continuous, uninterrupted build. ALL phases run back-to-back.
+# NO human confirmation is needed at any point. EVER.
+# The user has explicitly authorized full autonomy for the ENTIRE project.
+# Phases 1 through 8 execute sequentially without any pause.
+# ███████████████████████████████████████████████████████████████████
+
 This project runs in fully autonomous mode. You are never to ask the user questions.
 The user has stepped away. You must make all decisions independently.
+**This directive applies to the ENTIRE project — Phases 1 through 8, all agents,
+all tools, all decisions. Build continuously until Phase 8 is complete.**
 
 ### NEVER do any of these:
 - Use the `AskUserQuestion` tool for any reason
@@ -15,6 +25,9 @@ The user has stepped away. You must make all decisions independently.
 - Pause and wait for confirmation before taking action
 - Ask for clarification — make a reasonable assumption and document it
 - Ask which approach to use — always pick the most comprehensive option
+- Stop between phases — immediately advance to the next phase
+- Wait for user approval before spawning subagents or running tools
+- Stop building because something is hard — find a way and keep going
 
 ### ALWAYS do these instead:
 - When GSD asks for settings: Quality model, all workflow agents ON, auto-advance ON
@@ -23,6 +36,8 @@ The user has stepped away. You must make all decisions independently.
 - When something is ambiguous: make the best technical decision, write a comment
   explaining the assumption you made, and keep building
 - When a test fails: fix it autonomously, do not report and wait
+- When a phase is complete: immediately start the next phase
+- When blocked on a tool: find an alternative approach, document it, continue building
 - When a phase is complete: immediately advance to the next phase
 - When a build error occurs: debug and fix it, do not ask what to do
 

@@ -126,15 +126,35 @@ async def test_push(
             detail="No active push subscriptions found for this user",
         )
 
-    # Phase 1 stub: log the intent without sending actual push.
-    # Phase 2 will wire this to push_service.send_notification().
+    from src.services import push_service
+
+    payload = {
+        "title": "Keystone Test",
+        "body": "Push notifications are working correctly.",
+        "icon": "/keystone-192.png",
+        "badge": "/keystone-96.png",
+        "url": "/settings/notifications",
+        "tag": "test-notification",
+    }
+
+    sent = 0
+    for sub in subscriptions:
+        subscription_data = {
+            "endpoint": sub.endpoint,
+            "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
+        }
+        success = push_service.send_web_push(subscription_data, payload)
+        if success:
+            sent += 1
+
     logger.info(
-        "TEST PUSH: would send to %d subscription(s) for user %s",
+        "TEST PUSH: sent to %d/%d subscription(s) for user %s",
+        sent,
         len(subscriptions),
         current_user.id,
     )
     return {
-        "detail": "Test push logged",
+        "detail": "Test push sent",
         "subscriptions_found": len(subscriptions),
-        "note": "Actual push delivery wired in Phase 2",
+        "sent": sent,
     }

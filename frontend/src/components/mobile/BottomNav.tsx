@@ -2,8 +2,8 @@
 
 import { Layers, GitBranch, Inbox, Sun } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { navTapVariants } from '@/lib/motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { navTapVariants, tapVariants } from '@/lib/motion';
 import { useNotificationStore } from '@/stores/notifications.store';
 
 interface TabItem {
@@ -83,28 +83,40 @@ export function BottomNav() {
               />
             )}
 
-            {/* Badge for Inbox */}
-            {showBadge && pendingCount > 0 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: '20%',
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 8,
-                  background: 'var(--coral)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: 'white',
-                  padding: '0 4px',
-                }}
-              >
-                {pendingCount > 9 ? '9+' : pendingCount}
-              </span>
+            {/* Badge for Inbox — animates in when count goes from 0 to >0 */}
+            {showBadge && (
+              <AnimatePresence>
+                {pendingCount > 0 && (
+                  <motion.span
+                    key="inbox-badge"
+                    variants={tapVariants}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1, transition: { type: 'spring', stiffness: 500, damping: 20 } }}
+                    exit={{ scale: 0, opacity: 0, transition: { duration: 0.15 } }}
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: '20%',
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 9999,
+                      background: 'var(--coral)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: 'white',
+                      padding: '0 4px',
+                      fontFamily: 'var(--font-geist-sans)',
+                      lineHeight: 1,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             )}
 
             <Icon size={22} color={isActive ? 'var(--amber-core)' : 'var(--text-tertiary)'} />

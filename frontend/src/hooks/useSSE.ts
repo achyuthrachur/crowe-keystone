@@ -5,6 +5,8 @@ import { createSSEConnection } from '@/lib/sse';
 import { useGraphStore } from '@/stores/graph.store';
 import { useNotificationStore } from '@/stores/notifications.store';
 import { useAgentStore } from '@/stores/agent.store';
+import { useToastStore } from '@/stores/toast.store';
+import { mutate } from 'swr';
 import type { Stage } from '@/lib/stage-colors';
 import type { AgentRun } from '@/types/agent.types';
 import type { Approval } from '@/types/approval.types';
@@ -22,46 +24,69 @@ export function useSSE(): UseSSEResult {
   const closeRef = useRef<(() => void) | null>(null);
 
   const { updateNodeStage, addConflictEdge, removeConflictEdge, addNode } = useGraphStore();
-  const { addApproval, addUrgent } = useNotificationStore();
+  const { addApproval, addUrgent, removeApproval } = useNotificationStore();
   const { addRun, updateRunNode, setCheckpoint, completeRun, failRun } = useAgentStore();
+  const addToast = useToastStore((s) => s.addToast);
 
   useEffect(() => {
     const url = `${BACKEND_URL}/api/v1/stream`;
 
     const close = createSSEConnection(url, {
-      onConnected: () => {
+      onConnected: (_data) => {
+        void _data;
         setIsConnected(true);
         setIsReconnecting(false);
       },
 
       onProjectCreated: (event) => {
-        // Phase 4: addNode to graph. Stub here.
+        // Phase 4: addNode to graph
         void addNode;
         void event;
       },
 
       onProjectStageChanged: (event) => {
         updateNodeStage(event.data.project_id, event.data.new_stage as Stage);
+        // Notify inbox and revalidate project data so UI reflects new stage
+        useNotificationStore.getState().add({
+          id: `stage-${event.data.project_id}-${event.data.new_stage}-${Date.now()}`,
+          type: 'info',
+          title: `${event.data.title} → ${event.data.new_stage}`,
+          created_at: new Date().toISOString(),
+        });
+        void mutate(`${BACKEND_URL}/api/v1/projects/${event.data.project_id}`);
       },
 
       onConflictDetected: (event) => {
-        addConflictEdge(event.data.conflict_id, event.data.project_a_id, event.data.project_b_id);
+        addConflictEdge(
+          event.data.conflict_id,
+          event.data.project_a_id,
+          event.data.project_b_id
+        );
         addUrgent({
           id: `conflict-${event.data.conflict_id}`,
-          type: 'conflict',
-          title: 'Conflict detected',
+          type: 'error',
+          title: '⚠ Conflict detected',
           body: event.data.specific_conflict,
           created_at: new Date().toISOString(),
           url: `/inbox`,
+        });
+        addToast({
+          title: '⚠ Conflict detected',
+          body: event.data.specific_conflict,
+          type: 'error',
         });
       },
 
       onConflictResolved: (event) => {
         removeConflictEdge(event.data.conflict_id);
+        addToast({
+          title: 'Conflict resolved',
+          body: 'The conflict has been resolved.',
+          type: 'success',
+        });
       },
 
       onApprovalRequested: (event) => {
-        // Build a minimal Approval object for the store
         const approval: Approval = {
           id: event.data.approval_id,
           project_id: event.data.project_id,
@@ -78,6 +103,26 @@ export function useSSE(): UseSSEResult {
           resolved_at: null,
         };
         addApproval(approval);
+        addToast({
+          title: 'Approval requested',
+          body: event.data.project_title
+            ? `${event.data.project_title} is waiting for your review`
+            : 'A project is waiting for your review',
+          type: 'warning',
+        });
+      },
+
+      onApprovalDecided: (event) => {
+        // Remove from store and revalidate approvals list
+        removeApproval(event.data.approval_id);
+        if (event.data.decision === 'approve') {
+          addToast({
+            title: `✓ ${event.data.project_id} approved`,
+            body: '',
+            type: 'success',
+          });
+        }
+        void mutate(`${BACKEND_URL}/api/v1/approvals`);
       },
 
       onAgentStarted: (event) => {
@@ -102,11 +147,21 @@ export function useSSE(): UseSSEResult {
       },
 
       onAgentNodeEntered: (event) => {
-        updateRunNode(event.data.run_id, event.data.node_name, event.data.node_index, event.data.total_nodes);
+        updateRunNode(
+          event.data.run_id,
+          event.data.node_name,
+          event.data.node_index,
+          event.data.total_nodes
+        );
       },
 
       onAgentCheckpoint: (event) => {
         setCheckpoint(event.data.run_id, event.data.question);
+        addToast({
+          title: 'Agent needs input',
+          body: event.data.question,
+          type: 'warning',
+        });
       },
 
       onAgentCompleted: (event) => {
@@ -115,13 +170,26 @@ export function useSSE(): UseSSEResult {
 
       onAgentFailed: (event) => {
         failRun(event.data.run_id, event.data.error);
+        addToast({
+          title: 'Agent failed',
+          body: event.data.error,
+          type: 'error',
+        });
       },
 
-      // Stubs for Phase 2+
       onProjectBuildLogUpdated: () => {},
-      onApprovalDecided: () => {},
-      onPrdUpdated: () => {},
-      onDailyBriefReady: () => {},
+      onPrdUpdated: (event) => {
+        void mutate(`${BACKEND_URL}/api/v1/projects/${event.data.project_id}/prd`);
+      },
+      onDailyBriefReady: (_event) => {
+        useNotificationStore.getState().add({
+          id: `daily-brief-${new Date().toISOString().slice(0, 10)}`,
+          type: 'info',
+          title: 'Your daily brief is ready',
+          created_at: new Date().toISOString(),
+          url: '/daily',
+        });
+      },
       onMemoryEntryAdded: () => {},
 
       onError: () => {
@@ -139,7 +207,21 @@ export function useSSE(): UseSSEResult {
       close();
       closeRef.current = null;
     };
-  }, [addConflictEdge, addNode, addRun, addUrgent, addApproval, completeRun, failRun, removeConflictEdge, setCheckpoint, updateNodeStage, updateRunNode]);
+  }, [
+    addConflictEdge,
+    addNode,
+    addRun,
+    addToast,
+    addUrgent,
+    addApproval,
+    removeApproval,
+    completeRun,
+    failRun,
+    removeConflictEdge,
+    setCheckpoint,
+    updateNodeStage,
+    updateRunNode,
+  ]);
 
   return { isConnected, isReconnecting };
 }

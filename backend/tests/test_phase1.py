@@ -17,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config import settings
-from src.database import Base, get_db
+from src.database import Base, get_db, _build_asyncpg_url, _ssl_context
 from src.main import app
 from src.models.team import Team
 from src.models.user import User
@@ -28,7 +28,11 @@ from src.routers.auth import hash_password
 # Test database engine — uses the same Neon Postgres DATABASE_URL
 # Tests clean up after themselves via explicit deletes or a separate schema.
 # ---------------------------------------------------------------------------
-test_engine = create_async_engine(settings.DATABASE_URL, echo=False)
+test_engine = create_async_engine(
+    _build_asyncpg_url(settings.DATABASE_URL),
+    echo=False,
+    connect_args={"ssl": _ssl_context},
+)
 TestingSessionLocal = async_sessionmaker(
     bind=test_engine,
     class_=AsyncSession,

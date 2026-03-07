@@ -1,20 +1,43 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { progressFillVariants, conflictPulseVariants } from '@/lib/motion';
+import { useEffect, useRef } from 'react';
+import { motion, useAnimation, useReducedMotion } from 'framer-motion';
+import { conflictPulseVariants, DURATION } from '@/lib/motion';
 import { STAGE_COLORS, STAGE_LABELS, STAGE_ORDER, type Stage } from '@/lib/stage-colors';
 
 interface StageProgressBarProps {
   currentStage: Stage;
+  onStageChange?: (newStage: Stage, prevStage: Stage) => void;
 }
 
-export function StageProgressBar({ currentStage }: StageProgressBarProps) {
+export function StageProgressBar({ currentStage, onStageChange }: StageProgressBarProps) {
   const currentIndex = STAGE_ORDER.indexOf(currentStage);
   const progressPercent = (currentIndex / (STAGE_ORDER.length - 1)) * 100;
 
+  const shouldReduce = useReducedMotion();
+  const fillControls = useAnimation();
+  const prevStageRef = useRef<Stage>(currentStage);
+
+  // Animate the progress fill whenever currentStage changes
+  useEffect(() => {
+    const prev = prevStageRef.current;
+    if (prev !== currentStage) {
+      onStageChange?.(currentStage, prev);
+      prevStageRef.current = currentStage;
+
+      if (!shouldReduce) {
+        // Re-run fill animation on advance: start from current % and animate to new %
+        void fillControls.start({
+          width: `${progressPercent}%`,
+          transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+        });
+      }
+    }
+  }, [currentStage, progressPercent, shouldReduce, fillControls, onStageChange]);
+
   return (
     <div data-testid="stage-progress-bar" style={{ padding: '16px 32px' }}>
-      {/* Stage dots above track */}
+      {/* Stage dots + labels */}
       <div
         style={{
           display: 'flex',
@@ -39,10 +62,11 @@ export function StageProgressBar({ currentStage }: StageProgressBarProps) {
                 flex: '0 0 auto',
               }}
             >
+              {/* Dot */}
               {isCurrent ? (
                 <motion.div
-                  variants={conflictPulseVariants}
-                  animate="animate"
+                  variants={shouldReduce ? undefined : conflictPulseVariants}
+                  animate={shouldReduce ? undefined : 'animate'}
                   style={{
                     width: 12,
                     height: 12,
@@ -59,9 +83,12 @@ export function StageProgressBar({ currentStage }: StageProgressBarProps) {
                     borderRadius: '50%',
                     background: isCompleted ? 'var(--teal)' : 'transparent',
                     border: `2px solid ${isCompleted ? 'var(--teal)' : 'var(--border-default)'}`,
+                    transition: `background ${DURATION.normal}s ease, border-color ${DURATION.normal}s ease`,
                   }}
                 />
               )}
+
+              {/* Stage icon label */}
               <span
                 style={{
                   fontSize: 10,
@@ -69,6 +96,7 @@ export function StageProgressBar({ currentStage }: StageProgressBarProps) {
                   fontFamily: 'var(--font-geist-sans)',
                   fontWeight: isCurrent ? 600 : 400,
                   whiteSpace: 'nowrap',
+                  transition: `color ${DURATION.normal}s ease`,
                 }}
               >
                 {stageColor.icon}
@@ -88,19 +116,17 @@ export function StageProgressBar({ currentStage }: StageProgressBarProps) {
         }}
       >
         <motion.div
-          variants={progressFillVariants}
-          initial="initial"
-          animate="animate"
+          animate={fillControls}
+          initial={{ width: `${progressPercent}%` }}
           style={{
             height: '100%',
             background: 'var(--amber-core)',
             borderRadius: 2,
-            width: `${progressPercent}%`,
           }}
         />
       </div>
 
-      {/* Stage label */}
+      {/* Stage label text */}
       <div
         style={{
           marginTop: 6,

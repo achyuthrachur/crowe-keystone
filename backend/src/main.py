@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from src.config import settings
 from src.database import init_db
-from src.routers import auth, health, projects, push, stream
+from src.routers import approvals, auth, conflicts, health, projects, push, stream
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -80,6 +80,8 @@ API_PREFIX = "/api/v1"
 app.include_router(health.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(projects.router, prefix=API_PREFIX)
+app.include_router(approvals.router, prefix=API_PREFIX)
+app.include_router(conflicts.router, prefix=API_PREFIX)
 app.include_router(push.router, prefix=API_PREFIX)
 app.include_router(stream.router, prefix=API_PREFIX)
 
