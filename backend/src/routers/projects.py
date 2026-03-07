@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.models.user import User
 from src.routers.auth import get_current_user
+from src.routers.graph import invalidate_graph_cache
 from src.routers.stream import broadcast_to_team
 from src.schemas.approval import ApprovalResponse
 from src.schemas.project import ProjectCreate, ProjectListItem, ProjectResponse, ProjectUpdate
@@ -95,6 +96,7 @@ async def create_new_project(
         user_id=current_user.id,
         data=body,
     )
+    invalidate_graph_cache(current_user.team_id)
     return ProjectResponse.model_validate(project)
 
 
@@ -143,6 +145,7 @@ async def patch_project(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
+    invalidate_graph_cache(current_user.team_id)
     return ProjectResponse.model_validate(project)
 
 
@@ -164,6 +167,8 @@ async def archive_project_endpoint(
     )
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    invalidate_graph_cache(current_user.team_id)
 
 
 @router.post(
@@ -254,6 +259,7 @@ async def advance_project_stage(
                     },
                 },
             )
+            invalidate_graph_cache(current_user.team_id)
 
             # Fire push notifications 500ms after SSE (one per assigned reviewer)
             async def _send_push() -> None:
@@ -314,6 +320,7 @@ async def advance_project_stage(
                     },
                 },
             )
+            invalidate_graph_cache(current_user.team_id)
 
             logger.info(
                 "Project %s advanced %s → %s by user %s",

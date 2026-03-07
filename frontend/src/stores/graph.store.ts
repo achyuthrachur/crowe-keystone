@@ -7,6 +7,10 @@ interface GraphState {
   edges: Edge[];
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
+  /** Replace all nodes and edges — called on initial SWR load / reconciliation. */
+  setGraphData: (nodes: Node[], edges: Edge[]) => void;
+  /** Merge partial data fields onto a node's data object without replacing other fields. */
+  updateNodeData: (projectId: string, updates: Record<string, unknown>) => void;
   updateNodeStage: (projectId: string, newStage: Stage) => void;
   addNode: (node: Node) => void;
   addConflictEdge: (conflictId: string, projectAId: string, projectBId: string) => void;
@@ -20,6 +24,17 @@ export const useGraphStore = create<GraphState>((set) => ({
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
 
+  setGraphData: (nodes, edges) => set({ nodes, edges }),
+
+  updateNodeData: (projectId, updates) =>
+    set((state) => ({
+      nodes: state.nodes.map((n) =>
+        n.id === projectId
+          ? { ...n, data: { ...n.data, ...updates } }
+          : n
+      ),
+    })),
+
   updateNodeStage: (projectId, newStage) =>
     set((state) => ({
       nodes: state.nodes.map((n) =>
@@ -31,6 +46,7 @@ export const useGraphStore = create<GraphState>((set) => ({
 
   addNode: (node) =>
     set((state) => ({
+      // Deduplicate by id — if node already exists, replace it with the new one
       nodes: [...state.nodes.filter((n) => n.id !== node.id), node],
     })),
 
