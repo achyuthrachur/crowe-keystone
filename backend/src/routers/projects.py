@@ -3,7 +3,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -180,6 +180,7 @@ async def archive_project_endpoint(
 async def advance_project_stage(
     project_id: uuid.UUID,
     body: StageAdvanceRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> StageAdvanceResponse:
@@ -329,6 +330,18 @@ async def advance_project_stage(
                 body.target_stage,
                 current_user.id,
             )
+
+            # Trigger conflict scan as background task after any stage change
+            async def _run_conflict_scan() -> None:
+                try:
+                    from src.background.conflict_scanner import run_conflict_scan
+                    from src.database import AsyncSessionLocal
+                    async with AsyncSessionLocal() as scan_db:
+                        await run_conflict_scan(team_id_str, scan_db)
+                except Exception as scan_exc:
+                    logger.warning("Background conflict scan failed: %s", scan_exc)
+
+            background_tasks.add_task(_run_conflict_scan)
 
             return StageAdvanceResponse(
                 project=ProjectResponse.model_validate(project),

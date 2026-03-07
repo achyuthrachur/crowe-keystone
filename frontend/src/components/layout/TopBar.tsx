@@ -1,9 +1,13 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
 import { ViewportToggle } from './ViewportToggle';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { useNotificationStore } from '@/stores/notifications.store';
 
 export function TopBar() {
+  const lastPrdUpdate = useNotificationStore((s) => s.lastPrdUpdate);
+
   return (
     <header
       data-testid="top-bar"
@@ -97,6 +101,34 @@ export function TopBar() {
 
       {/* Right side controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {/* PRD version badge — appears briefly after prd.updated SSE fires */}
+        <AnimatePresence>
+          {lastPrdUpdate && (
+            <motion.span
+              key={`prd-${lastPrdUpdate.project_id}-${lastPrdUpdate.version}`}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              data-testid="prd-version-badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px 8px',
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 600,
+                background: 'var(--amber-glow)',
+                border: '1px solid var(--amber-core)',
+                color: 'var(--amber-core)',
+                fontFamily: 'var(--font-geist-mono)',
+              }}
+            >
+              PRD v{lastPrdUpdate.version}
+            </motion.span>
+          )}
+        </AnimatePresence>
         <ViewportToggle />
         <NotificationBell />
 

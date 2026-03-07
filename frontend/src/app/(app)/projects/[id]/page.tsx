@@ -2,8 +2,8 @@
 
 import { use, useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import useSWR from 'swr';
 import { pageVariants } from '@/lib/motion';
-import { MOCK_PROJECTS } from '@/lib/api';
 import { STAGE_COLORS, STAGE_LABELS, type Stage } from '@/lib/stage-colors';
 import { StageProgressBar } from '@/components/projects/StageProgressBar';
 import { AgentPanel } from '@/components/agents/AgentPanel';
@@ -11,6 +11,19 @@ import { PRDEditor } from '@/components/prd/PRDEditor';
 import { useAgentStore } from '@/stores/agent.store';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { Project } from '@/lib/api';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+
+async function fetchProject(url: string): Promise<Project> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('keystone_token') : null;
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json() as Promise<Project>;
+}
 
 interface ProjectDetailPageProps {
   params: Promise<{ id: string }>;
@@ -48,6 +61,11 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const shouldReduce = useReducedMotion();
   const activeRun = useAgentStore((s) => s.activeRunForProject(id));
 
+  const { data: project, isLoading, error } = useSWR<Project>(
+    `${BACKEND_URL}/api/v1/projects/${id}`,
+    fetchProject
+  );
+
   // Tab state — read from ?tab= query param, default to 'prd'
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tabParam = searchParams.get('tab');
@@ -69,9 +87,17 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
     router.replace(url.pathname + url.search, { scroll: false });
   }
 
-  const project = MOCK_PROJECTS.find((p) => p.id === id);
+  if (isLoading) {
+    return (
+      <div style={{ padding: 24 }}>
+        <p style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)' }}>
+          Loading...
+        </p>
+      </div>
+    );
+  }
 
-  if (!project) {
+  if (error || !project) {
     return (
       <div style={{ padding: 24 }}>
         <p style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)' }}>

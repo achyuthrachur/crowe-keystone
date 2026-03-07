@@ -263,11 +263,13 @@ export async function apiRequest<T>(
   options?: RequestInit
 ): Promise<T> {
   const url = `${BACKEND_URL}/api/v1${path}`;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('keystone_token') : null;
   const res = await fetch(url, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });

@@ -94,11 +94,18 @@ async def upsert_prd(
     await _get_scoped_project(project_id, current_user, db)
 
     try:
+        # Resolve content: if caller omits content (partial save), merge with existing
+        if body.content is not None:
+            new_content = body.content.model_dump()
+        else:
+            existing = await prd_service.get_current_prd(db, project_id=project_id)
+            new_content = dict(existing.content) if existing and existing.content else {}
+
         prd = await prd_service.create_or_update_prd(
             db,
             project_id=project_id,
             user_id=current_user.id,
-            content=body.content.model_dump(),
+            content=new_content,
             open_questions=body.open_questions,
         )
     except Exception as exc:

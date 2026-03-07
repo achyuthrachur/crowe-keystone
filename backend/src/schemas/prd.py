@@ -68,7 +68,8 @@ class PRDCreate(BaseModel):
 
 
 class PRDUpdate(BaseModel):
-    content: PRDContent
+    """PUT body — content and/or open_questions may be omitted for partial saves."""
+    content: Optional[PRDContent] = None
     open_questions: list[dict[str, Any]] = Field(default_factory=list)
 
 

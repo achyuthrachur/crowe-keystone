@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** A team using Keystone never re-litigates past decisions, misses a conflict, or loses track of where something stands.
-**Current focus:** Phase 2 — Stage Transitions + Approvals + Push
+**Current focus:** Phase 6 — Agent Integration (frontend wiring)
 
 ## Current Phase
 
-**Phase 2: Stage Transitions + Approvals + Push**
+**Phase 6: Agent Integration**
 
-Status: IN PROGRESS
-Started: 2026-03-07
+Status: PENDING
+Started: —
 
 Phase 2 goal: Full stage graph. Stage advance creates approvals. Approvals visible in inbox. SSE events fire and update UI in real time. Push notifications buzz phone.
 
@@ -21,25 +21,33 @@ Phase 2 goal: Full stage graph. Stage advance creates approvals. Approvals visib
 | Phase | Status | Completed |
 |-------|--------|-----------|
 | Phase 1: Foundation | ✓ Complete | 2026-03-07 |
-| Phase 2: Stage Transitions + Approvals + Push | ◆ In Progress | — |
-| Phase 3: Living PRD System | ○ Pending | — |
-| Phase 4: React Flow Graph | ○ Pending | — |
-| Phase 5: LangGraph Engine | ○ Pending | — |
+| Phase 2: Stage Transitions + Approvals + Push | ✓ Complete | 2026-03-07 |
+| Phase 3: Living PRD System | ✓ Complete | 2026-03-07 |
+| Phase 4: React Flow Graph | ✓ Complete | 2026-03-07 |
+| Phase 5: LangGraph Engine | ✓ Complete | 2026-03-07 |
 | Phase 6: Agent Integration | ○ Pending | — |
 | Phase 7: Integrations + Memory + Settings | ○ Pending | — |
 | Phase 8: Polish + Performance + Production | ○ Pending | — |
 
-## Active Agents (Phase 2)
+## Phase 5 Completion Notes (2026-03-07)
 
-Currently running (background):
-- Phase 2 Backend API agent (a0e6f58544383f0bf) — stage_service, approval_service, push_service, /advance endpoint, /approvals router
-- Phase 2 Web Frontend agent (a36c2bbc14e5004a7) — Inbox page, ApprovalRequest.tsx, NotificationBell, SSE wiring
+All nodes implemented and tested:
+- classifier, brief_generator, prd_drafter (5 sections + merger), stress_tester + red_team
+- assumption_excavator, conflict_detector (embedding-based + LLM classify)
+- approval_router, update_writer, daily_brief_generator, daily_brief_persister
+- open_question_extractor, prompt_writer, quality_gate, human_checkpoint
+- memory_indexer (Phase 7 stub), retro_generator
+- keystone_graph.py: all 4 graphs compiled and tested
+- agents.py router: POST /agents/run, GET /agents/run/{id}, POST /agents/run/{id}/respond
+- APScheduler daily brief job wired in main.py (7:00 UTC)
+- conflict_scanner triggered as background task on stage advance
 
-Queued to spawn after above complete:
-- Phase 2 Mobile Frontend — MobileApprovalCard swipe, BottomNav badge, Mobile Inbox
-- Phase 2 PWA — push handler in sw.js, push_service.py, PushPermissionPrompt
-- Phase 2 SSE Specialist — broadcast_to_team wiring, useSSE routing
-- Phase 2 Test Agent — Phase 2 checklist verification tests
+Phase 3 completion notes:
+- All backend PRD CRUD endpoints passing (22/22 tests)
+- Frontend PRDEditor uses real API with JWT auth
+- Project detail page uses SWR + real API (not mock data)
+- TopBar PRD version badge wired to prd.updated SSE
+- PRDUpdate schema supports partial saves (content optional)
 
 ## Key Technical Notes
 

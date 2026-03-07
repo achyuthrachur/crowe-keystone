@@ -223,7 +223,11 @@ function relativeTime(iso: string): string {
 // ── SWR fetcher ───────────────────────────────────────────────────
 
 async function fetchPRD(url: string): Promise<PRD | null> {
-  const res = await fetch(url, { credentials: 'include' });
+  const token = typeof window !== 'undefined' ? localStorage.getItem('keystone_token') : null;
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json() as Promise<PRD>;

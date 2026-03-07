@@ -222,6 +222,15 @@ export function useSSE(): UseSSEResult {
       onProjectBuildLogUpdated: () => {},
       onPrdUpdated: (event) => {
         void mutate(`${BACKEND_URL}/api/v1/projects/${event.data.project_id}/prd`);
+        // Track last PRD update in store — drives the TopBar badge
+        useNotificationStore.getState().setLastPrdUpdate({
+          project_id: event.data.project_id,
+          version: event.data.version,
+        });
+        // Auto-clear badge after 5 seconds
+        setTimeout(() => {
+          useNotificationStore.getState().setLastPrdUpdate(null);
+        }, 5000);
       },
       onDailyBriefReady: (_event) => {
         useNotificationStore.getState().add({

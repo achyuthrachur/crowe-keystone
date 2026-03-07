@@ -15,12 +15,15 @@ export interface Notification {
 interface NotificationsState {
   notifications: Notification[];
   pendingCount: number;
+  /** Last PRD update: {project_id, version} — set by prd.updated SSE, cleared after 5s */
+  lastPrdUpdate: { project_id: string; version: number } | null;
   addApproval: (approval: Approval) => void;
   removeApproval: (id: string) => void;
   addUrgent: (notification: Omit<Notification, 'read'>) => void;
   add: (notification: Omit<Notification, 'read'>) => void;
   markRead: (id: string) => void;
   clearAll: () => void;
+  setLastPrdUpdate: (update: { project_id: string; version: number } | null) => void;
 }
 
 function computePendingCount(notifications: Notification[]): number {
@@ -31,6 +34,7 @@ function computePendingCount(notifications: Notification[]): number {
 export const useNotificationStore = create<NotificationsState>((set) => ({
   notifications: [],
   pendingCount: 0,
+  lastPrdUpdate: null,
 
   addApproval: (approval) =>
     set((state) => {
@@ -77,4 +81,6 @@ export const useNotificationStore = create<NotificationsState>((set) => ({
     }),
 
   clearAll: () => set({ notifications: [], pendingCount: 0 }),
+
+  setLastPrdUpdate: (update) => set({ lastPrdUpdate: update }),
 }));

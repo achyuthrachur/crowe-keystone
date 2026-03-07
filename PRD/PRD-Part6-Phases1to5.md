@@ -196,9 +196,10 @@ pydantic==2.7.x
 pydantic-settings==2.3.x
 python-jose[cryptography]==3.3.x
 passlib[bcrypt]==1.7.x
-anthropic==0.28.x
+openai==1.x
 langgraph==0.2.x
 langchain==0.2.x
+langchain-openai==0.1.x
 pywebpush==2.0.x
 sentence-transformers==3.0.x
 apscheduler==3.10.x
@@ -211,8 +212,7 @@ mypy==1.10.x
 
 ## Phase 1 Deliverables Checklist
 
-- [ ] `docker-compose up -d` — Postgres starts, no errors
-- [ ] `alembic upgrade head` — all 5 tables created without error
+- [ ] `alembic upgrade head` — all 5 tables created without error (runs against Neon)
 - [ ] `alembic downgrade -1 && alembic upgrade head` — clean round-trip
 - [ ] `POST /api/v1/auth/login` with test credentials returns `{ user, token }`
 - [ ] `GET /api/v1/projects` returns `[]` for new team
@@ -707,8 +707,7 @@ Tasks:
     returns route decision (needs_brief | has_brief | low_confidence)
   brief_generator.py: full implementation per Part 4 spec
     Loads brief_generator.md prompt
-    Calls claude-haiku for simple formatting decisions
-    Calls claude-sonnet-4-5 for the actual brief generation
+    Calls gpt-5.4 for all generation (single model throughout)
     Sets human_checkpoint_needed=True if confidence < 0.6
   Unit tests for both nodes (3 sample inputs each)
 
@@ -717,7 +716,7 @@ Domain: nodes/prd_drafter.py + section drafters, prompts/prd_drafter.md
 Tasks:
   Implement all 5 section drafter nodes (section_problem, section_stories,
     section_requirements, section_stack, section_components)
-  Each uses claude-sonnet-4-5
+  Each uses gpt-5.4
   section_merger.py: assembles sections, runs deduplication
   spawn_parallel_sections function: uses Send API to dispatch all 5 in parallel
   Unit tests per section drafter

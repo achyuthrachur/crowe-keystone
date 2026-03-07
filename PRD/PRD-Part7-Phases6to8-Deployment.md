@@ -717,7 +717,7 @@ The following are explicitly excluded. They are Phase 9+ roadmap items.
 | APNS/FCM push (native) | Web Push covers the use case |
 | Offline mode | Requires internet connection |
 | Multi-tenancy (multiple orgs) | Single team per deployment, Phase 9 |
-| AI model selection UI | claude-sonnet-4-5 everywhere, hardcoded |
+| AI model selection UI | gpt-5.4 everywhere, hardcoded |
 | Fine-tuning | Not applicable |
 | Time tracking | Not a time management tool |
 | External client access | Internal team only |
