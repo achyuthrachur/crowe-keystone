@@ -238,9 +238,10 @@ async function fetchPRD(url: string): Promise<PRD | null> {
 interface PRDEditorProps {
   projectId: string;
   onPRDUpdate?: () => void;
+  onRunStressTest?: () => void;
 }
 
-export function PRDEditor({ projectId, onPRDUpdate }: PRDEditorProps) {
+export function PRDEditor({ projectId, onPRDUpdate, onRunStressTest }: PRDEditorProps) {
   const shouldReduce = useReducedMotion();
   const [showDiff, setShowDiff] = useState(false);
 
@@ -462,7 +463,10 @@ export function PRDEditor({ projectId, onPRDUpdate }: PRDEditorProps) {
       </AnimatePresence>
 
       {/* Stress test panel */}
-      <StressTestPanel />
+      <StressTestPanel
+        data={prd.stress_test_results}
+        onRunStressTest={onRunStressTest}
+      />
 
       {/* PRD sections */}
       <motion.div

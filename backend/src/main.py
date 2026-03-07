@@ -19,6 +19,7 @@ from src.database import init_db
 from src.routers import approvals, auth, conflicts, health, projects, prds, push, stream
 from src.routers import graph as graph_router
 from src.routers import agents as agents_router
+from src.routers import daily as daily_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -185,6 +186,7 @@ app.include_router(push.router, prefix=API_PREFIX)
 app.include_router(stream.router, prefix=API_PREFIX)
 app.include_router(graph_router.router, prefix=API_PREFIX)
 app.include_router(agents_router.router, prefix=API_PREFIX)
+app.include_router(daily_router.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

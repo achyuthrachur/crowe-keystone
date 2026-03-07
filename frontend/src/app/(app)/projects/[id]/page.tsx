@@ -12,6 +12,8 @@ import { useAgentStore } from '@/stores/agent.store';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Project } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
+import { mutate } from 'swr';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
 
@@ -60,6 +62,74 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
   const searchParams = useSearchParams();
   const shouldReduce = useReducedMotion();
   const activeRun = useAgentStore((s) => s.activeRunForProject(id));
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [kickoffPrompt, setKickoffPrompt] = useState<string | null>(null);
+
+  async function handleStageAction(action: string) {
+    if (actionLoading) return;
+    setActionLoading(action);
+    try {
+      if (action === 'trigger_brief_generator') {
+        await apiRequest('/agents/run', {
+          method: 'POST',
+          body: JSON.stringify({ agent_type: 'brief_generator', project_id: id, input_data: { raw_input: project?.spark_content ?? '' } }),
+        });
+      } else if (action === 'trigger_prd_drafter') {
+        await apiRequest('/agents/run', {
+          method: 'POST',
+          body: JSON.stringify({ agent_type: 'prd_drafter', project_id: id, input_data: { raw_input: project?.title ?? '' } }),
+        });
+      } else if (action === 'trigger_stress_tester') {
+        await apiRequest('/agents/run', {
+          method: 'POST',
+          body: JSON.stringify({ agent_type: 'stress_tester', project_id: id, input_data: {} }),
+        });
+      } else if (action === 'trigger_retro') {
+        await apiRequest('/agents/run', {
+          method: 'POST',
+          body: JSON.stringify({ agent_type: 'retro_generator', project_id: id, input_data: {} }),
+        });
+      } else if (action === 'stage_advance') {
+        const nextStage = getNextStage(project?.stage ?? '');
+        if (nextStage) {
+          await apiRequest(`/projects/${id}/advance`, {
+            method: 'POST',
+            body: JSON.stringify({ target_stage: nextStage }),
+          });
+          void mutate(`${BACKEND_URL}/api/v1/projects/${id}`);
+        }
+      } else if (action === 'start_build') {
+        await apiRequest(`/projects/${id}/advance`, {
+          method: 'POST',
+          body: JSON.stringify({ target_stage: 'in_build' }),
+        });
+        const data = await apiRequest<{ prompt: string }>(`/projects/${id}/kickoff-prompt`);
+        setKickoffPrompt(data.prompt);
+        void mutate(`${BACKEND_URL}/api/v1/projects/${id}`);
+      } else if (action === 'log_update') {
+        const notes = window.prompt('Enter build notes:');
+        if (notes) {
+          await apiRequest(`/projects/${id}/build-log`, {
+            method: 'POST',
+            body: JSON.stringify({ raw_notes: notes, source: 'manual' }),
+          });
+          void mutate(`${BACKEND_URL}/api/v1/projects/${id}`);
+        }
+      }
+    } catch (err) {
+      console.error(`[StageAction] ${action} failed:`, err);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  function getNextStage(current: string): string | null {
+    const map: Record<string, string> = {
+      spark: 'brief', brief: 'draft_prd', draft_prd: 'review',
+      approved: 'in_build', in_build: 'shipped', shipped: 'retrospective',
+    };
+    return map[current] ?? null;
+  }
 
   const { data: project, isLoading, error } = useSWR<Project>(
     `${BACKEND_URL}/api/v1/projects/${id}`,
@@ -238,7 +308,10 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 exit={shouldReduce ? undefined : { opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
               >
-                <PRDEditor projectId={id} />
+                <PRDEditor
+                  projectId={id}
+                  onRunStressTest={() => void handleStageAction('trigger_stress_tester')}
+                />
               </motion.div>
             )}
 
@@ -307,7 +380,53 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
         {/* Right panel */}
         <div style={{ width: 280, flexShrink: 0 }}>
           {/* Agent Panel */}
-          {activeRun && <AgentPanel run={activeRun} />}
+          <AgentPanel run={activeRun} />
+
+          {/* Kickoff prompt modal */}
+          <AnimatePresence>
+            {kickoffPrompt && (
+              <motion.div
+                initial={shouldReduce ? undefined : { opacity: 0, scale: 0.95 }}
+                animate={shouldReduce ? undefined : { opacity: 1, scale: 1 }}
+                exit={shouldReduce ? undefined : { opacity: 0, scale: 0.95 }}
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 50,
+                  background: 'rgba(1,30,65,0.5)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 24,
+                }}
+                onClick={() => setKickoffPrompt(null)}
+              >
+                <motion.div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'var(--surface-elevated)',
+                    borderRadius: 12,
+                    padding: 24,
+                    maxWidth: 560,
+                    width: '100%',
+                    boxShadow: '0 24px 48px rgba(1,30,65,0.2)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-geist-sans)', color: 'var(--text-primary)' }}>
+                      Claude Code Kickoff Prompt
+                    </h3>
+                    <button onClick={() => setKickoffPrompt(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', fontSize: 18 }}>✕</button>
+                  </div>
+                  <pre style={{ fontSize: 11, fontFamily: 'var(--font-geist-mono)', color: 'var(--text-secondary)', background: 'var(--surface-input)', borderRadius: 8, padding: 12, overflow: 'auto', maxHeight: 320, whiteSpace: 'pre-wrap', margin: '0 0 12px' }}>
+                    {kickoffPrompt}
+                  </pre>
+                  <button
+                    onClick={() => { void navigator.clipboard.writeText(kickoffPrompt); }}
+                    style={{ height: 36, padding: '0 16px', borderRadius: 8, border: 'none', background: 'var(--amber-core)', color: 'var(--surface-base)', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-geist-sans)', cursor: 'pointer' }}
+                  >
+                    Copy to clipboard
+                  </button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Stage actions */}
           {stageActions.length > 0 && (
@@ -329,28 +448,31 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 {stageActions.map((action) => (
                   <button
                     key={action.action}
+                    onClick={() => void handleStageAction(action.action)}
+                    disabled={actionLoading !== null}
                     style={{
                       height: 36,
                       padding: '0 12px',
                       borderRadius: 8,
                       border: '1px solid var(--border-subtle)',
-                      background: action.action === 'approve' || action.action.includes('advance')
+                      background: action.action === 'approve' || action.action.includes('advance') || action.action === 'start_build'
                         ? 'var(--amber-glow)'
                         : 'var(--surface-input)',
-                      color: action.action === 'approve' || action.action.includes('advance')
+                      color: action.action === 'approve' || action.action.includes('advance') || action.action === 'start_build'
                         ? 'var(--amber-core)'
                         : 'var(--text-secondary)',
                       fontSize: 12,
                       fontFamily: 'var(--font-geist-sans)',
-                      cursor: 'pointer',
+                      cursor: actionLoading !== null ? 'not-allowed' : 'pointer',
                       textAlign: 'left',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 6,
                       transition: 'all 150ms',
+                      opacity: actionLoading === action.action ? 0.6 : 1,
                     }}
                   >
-                    <span>{action.icon}</span>
+                    <span>{actionLoading === action.action ? '...' : action.icon}</span>
                     {action.label}
                   </button>
                 ))}

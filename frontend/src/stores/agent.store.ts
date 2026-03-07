@@ -24,10 +24,21 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set((state) => {
       const run = state.runs[runId];
       if (!run) return state;
+      const prevNode = run.current_node;
+      const nodes_completed = [
+        ...(run.nodes_completed ?? []),
+        ...(prevNode && prevNode !== nodeName ? [prevNode] : []),
+      ];
       return {
         runs: {
           ...state.runs,
-          [runId]: { ...run, current_node: nodeName, node_index: nodeIndex, total_nodes: totalNodes },
+          [runId]: {
+            ...run,
+            current_node: nodeName,
+            node_index: nodeIndex,
+            total_nodes: totalNodes,
+            nodes_completed,
+          },
         },
       };
     }),

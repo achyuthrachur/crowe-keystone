@@ -31,5 +31,6 @@ export interface AgentRun {
   current_node?: string;
   node_index?: number;
   total_nodes?: number;
+  nodes_completed?: string[];
   checkpoint_question?: string;
 }

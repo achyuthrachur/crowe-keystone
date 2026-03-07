@@ -1,19 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR from 'swr';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { accordionVariants, agentDotVariants, tapVariants } from '@/lib/motion';
 import { STAGE_COLORS, STAGE_ORDER, STAGE_LABELS, type Stage } from '@/lib/stage-colors';
 import type { Project } from '@/lib/api';
 import { PRDAccordion, type PRD } from '@/components/prd/PRDAccordion';
+import { useAgentStore } from '@/stores/agent.store';
+import { AgentThinking } from '@/components/agents/AgentThinking';
 
 // ── SWR fetcher ──────────────────────────────────────────────────
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
 
 async function prdFetcher(url: string): Promise<PRD | null> {
-  const res = await fetch(url, { credentials: 'include' });
+  const token = typeof window !== 'undefined' ? localStorage.getItem('keystone_token') : null;
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`PRD fetch error ${res.status}`);
   return res.json() as Promise<PRD>;
@@ -29,8 +35,23 @@ interface MobileProjectDetailProps {
 
 export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['prd']));
+  const [agentStatusVisible, setAgentStatusVisible] = useState(false);
   const currentStageIndex = STAGE_ORDER.indexOf(project.stage as Stage);
   const stageColor = STAGE_COLORS[project.stage as Stage];
+  const activeRun = useAgentStore((s) => s.activeRunForProject(project.id));
+
+  // Show agent status bar when agent is running; auto-hide 3s after completion
+  useEffect(() => {
+    if (activeRun && (activeRun.status === 'running' || activeRun.status === 'awaiting_human')) {
+      setAgentStatusVisible(true);
+    } else if (activeRun?.status === 'complete') {
+      setAgentStatusVisible(true);
+      const t = setTimeout(() => setAgentStatusVisible(false), 3000);
+      return () => clearTimeout(t);
+    } else {
+      setAgentStatusVisible(false);
+    }
+  }, [activeRun?.status]);
 
   // SWR fetch for PRD data — null when project has no PRD yet
   const { data: prd, isLoading: prdLoading } = useSWR<PRD | null>(
@@ -107,6 +128,45 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
           {' · '}Stage {currentStageIndex + 1} of {STAGE_ORDER.length}
         </div>
       </div>
+
+      {/* ── Agent status bar ────────────────────────────────── */}
+      <AnimatePresence>
+        {agentStatusVisible && activeRun && (
+          <motion.div
+            key="agent-status"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              background: activeRun.status === 'complete' ? 'var(--teal-glow)' : 'var(--amber-glow)',
+              border: `1px solid ${activeRun.status === 'complete' ? 'var(--teal)' : 'var(--border-amber)'}`,
+              borderRadius: 8,
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <span style={{ fontSize: 12 }}>⚡</span>
+            <span
+              style={{
+                flex: 1,
+                fontSize: 12,
+                fontFamily: 'var(--font-geist-sans)',
+                fontWeight: 600,
+                color: activeRun.status === 'complete' ? 'var(--teal)' : 'var(--amber-core)',
+              }}
+            >
+              {activeRun.agent_type.replace('_', ' ')}
+              {activeRun.current_node ? ` · ${activeRun.current_node}` : ''}
+              {activeRun.status === 'complete' ? ' · Done ✓' : ''}
+            </span>
+            {activeRun.status === 'running' && <AgentThinking />}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Quick actions ────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>

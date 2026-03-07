@@ -285,6 +285,49 @@ async def advance_project_stage(
 
             asyncio.create_task(_send_push())
 
+            # Trigger approval_router agent in background to generate AI summary
+            async def _run_approval_router() -> None:
+                try:
+                    from src.routers.agents import _run_graph_task, _select_graph
+                    from src.state import KeystoneState
+                    from src.config import settings as _settings
+                    import uuid as _uuid2
+                    run_id = str(_uuid2.uuid4())
+                    initial: KeystoneState = {
+                        "run_id": run_id,
+                        "agent_type": "approval_router",
+                        "project_id": str(project.id),
+                        "team_id": team_id_str,
+                        "triggered_by": str(current_user.id),
+                        "approval_type": "stage_advance",
+                        "context": {"from_stage": project.stage, "to_stage": body.target_stage},
+                        "raw_input": request_summary,
+                        "input_type": "data",
+                        "brief": None, "prd_draft": None, "prd_version": 1,
+                        "hypotheses": [], "adversarial_findings": [], "assumption_audit": [],
+                        "stress_test_confidence": 0.0, "all_project_states": [],
+                        "detected_conflicts": [], "approval_chain": [],
+                        "approval_context_summary": "",
+                        "raw_build_notes": None, "structured_update": None,
+                        "user_id": str(current_user.id), "brief_sections": None,
+                        "memory_entries": [], "similar_prior_projects": [],
+                        "human_checkpoint_needed": False, "checkpoint_question": None,
+                        "checkpoint_response": None, "quality_score": 0.0,
+                        "loop_count": 0, "errors": [], "status": "running",
+                    }
+                    _graph = _select_graph("approval_router")
+                    await _run_graph_task(
+                        run_id=run_id,
+                        graph=_graph,
+                        initial_state=initial,
+                        team_id=team_id_str,
+                        db_url=_settings.DATABASE_URL,
+                    )
+                except Exception as exc:
+                    logger.warning("approval_router agent failed: %s", exc)
+
+            asyncio.create_task(_run_approval_router())
+
             return StageAdvanceResponse(
                 project=ProjectResponse.model_validate(project),
                 approval_id=str(approval.id),
@@ -359,6 +402,41 @@ async def advance_project_stage(
         )
 
 
+@router.get(
+    "/{project_id}/kickoff-prompt",
+    status_code=status.HTTP_200_OK,
+    summary="Get the Claude Code kickoff prompt from the current approved PRD",
+)
+async def get_kickoff_prompt(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    if current_user.team_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    project = await get_project(db, project_id=project_id, team_id=current_user.team_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    prd = await prd_service.get_current_prd(db, project_id=project_id)
+    if prd is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No PRD found for this project")
+
+    prompt = (prd.claude_code_prompt or "").strip()
+    if not prompt and prd.content:
+        # Fall back to content.claude_code_prompt if the top-level field is empty
+        prompt = str(prd.content.get("claude_code_prompt", "")).strip()
+
+    if not prompt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Claude Code prompt found. Draft a PRD and run the agent to generate one.",
+        )
+
+    return {"prompt": prompt}
+
+
 @router.post(
     "/{project_id}/build-log",
     response_model=BuildLogResponse,
@@ -368,6 +446,7 @@ async def advance_project_stage(
 async def add_build_log(
     project_id: uuid.UUID,
     body: BuildLogRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> BuildLogResponse:
@@ -378,13 +457,62 @@ async def add_build_log(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    # Phase 6 stub: agent wiring not yet implemented.
-    # In Phase 6 this will: create an agent_run record, spawn the update_writer
-    # LangGraph graph asynchronously, and return the real run_id.
-    logger.info(
-        "Build log received for project %s source=%s length=%d chars (agent stub)",
-        project_id,
-        body.source,
-        len(body.raw_notes),
+    import uuid as _uuid
+    from src.models.agent_run import AgentRun
+    from src.graph.keystone_graph import build_prd_architect_graph
+    from src.config import settings
+    from src.state import KeystoneState
+
+    run_id = str(_uuid.uuid4())
+    team_id_str = str(current_user.team_id)
+
+    # Create an agent_run record
+    agent_run = AgentRun(
+        id=_uuid.UUID(run_id),
+        team_id=current_user.team_id,
+        agent_type="update_writer",
+        project_id=project_id,
+        triggered_by=current_user.id,
+        trigger_event="build_log",
+        input_summary=body.raw_notes[:200],
+        status="running",
     )
-    return BuildLogResponse(run_id="stub")
+    db.add(agent_run)
+    await db.commit()
+
+    # Build initial state and run update_writer graph as background task
+    initial_state: KeystoneState = {
+        "run_id": run_id,
+        "agent_type": "update_writer",
+        "project_id": str(project_id),
+        "team_id": team_id_str,
+        "triggered_by": str(current_user.id),
+        "raw_input": body.raw_notes,
+        "input_type": "notes",
+        "context": {"source": body.source},
+        "brief": None, "prd_draft": None, "prd_version": 1,
+        "hypotheses": [], "adversarial_findings": [], "assumption_audit": [],
+        "stress_test_confidence": 0.0, "all_project_states": [],
+        "detected_conflicts": [], "approval_type": None,
+        "approval_chain": [], "approval_context_summary": "",
+        "raw_build_notes": body.raw_notes, "structured_update": None,
+        "user_id": str(current_user.id), "brief_sections": None,
+        "memory_entries": [], "similar_prior_projects": [],
+        "human_checkpoint_needed": False, "checkpoint_question": None,
+        "checkpoint_response": None, "quality_score": 0.0,
+        "loop_count": 0, "errors": [], "status": "running",
+    }
+
+    from src.routers.agents import _run_graph_task, _select_graph
+    graph = _select_graph("update_writer")
+    background_tasks.add_task(
+        _run_graph_task,
+        run_id=run_id,
+        graph=graph,
+        initial_state=initial_state,
+        team_id=team_id_str,
+        db_url=settings.DATABASE_URL,
+    )
+
+    logger.info("Build log received for project %s source=%s — run_id=%s", project_id, body.source, run_id)
+    return BuildLogResponse(run_id=run_id)
