@@ -28,7 +28,11 @@ const PRESENCE_USERS = [
   { id: '2', name: 'Alex', color: 'var(--amber-core)', status: 'away' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const pendingCount = useNotificationStore((s) => s.pendingCount);
@@ -58,7 +62,7 @@ export function Sidebar() {
             return (
               <button
                 key={href}
-                onClick={() => router.push(href)}
+                onClick={() => { router.push(href); onNavigate?.(); }}
                 style={{
                   position: 'relative',
                   display: 'flex',

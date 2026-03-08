@@ -8,6 +8,15 @@ import operator
 from typing import Annotated, Optional, TypedDict
 
 
+def _merge_dict(a: Optional[dict], b: Optional[dict]) -> Optional[dict]:
+    """Merge two dicts for prd_draft concurrent parallel section updates."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return {**a, **b}
+
+
 class HypothesisResult(TypedDict):
     id: str
     statement: str
@@ -77,7 +86,7 @@ class KeystoneState(TypedDict):
     brief: Optional[BriefContent]
 
     # ── PRD
-    prd_draft: Optional[PRDContent]
+    prd_draft: Annotated[Optional[PRDContent], _merge_dict]
     prd_version: int
 
     # ── Stress test (parallel branches — Annotated[list, operator.add] merges results)
@@ -113,5 +122,5 @@ class KeystoneState(TypedDict):
     checkpoint_response: Optional[str]
     quality_score: float              # 0.0 to 1.0
     loop_count: int                   # prevents runaway loops (max 3)
-    errors: list[str]
+    errors: Annotated[list[str], operator.add]
     status: str                       # running | complete | failed | awaiting_human

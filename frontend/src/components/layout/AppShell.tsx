@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useViewportStore } from '@/stores/viewport.store';
+import { useViewportStore, detectMobileDevice } from '@/stores/viewport.store';
 import { WebLayout } from './WebLayout';
 import { MobileLayout } from '../mobile/MobileLayout';
 import { PhoneFrame } from '../mobile/PhoneFrame';
@@ -14,6 +15,21 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const { mode, isMobileDevice } = useViewportStore();
+
+  // Detect mobile device after hydration to avoid SSR/client mismatch.
+  // This runs only on the client, after React has fully hydrated the page.
+  useEffect(() => {
+    useViewportStore.setState({ isMobileDevice: detectMobileDevice() });
+
+    const mq = window.matchMedia('(pointer: coarse)');
+    const update = () => useViewportStore.setState({ isMobileDevice: detectMobileDevice() });
+    mq.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      mq.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
   const showPhoneFrame = mode === 'mobile' && !isMobileDevice;
 
   if (showPhoneFrame) {

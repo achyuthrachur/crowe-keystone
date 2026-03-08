@@ -35,7 +35,7 @@ export function MobileGraphList() {
   const toggleStage = (stage: Stage) => {
     setOpenStages((prev) => {
       const next = new Set(prev);
-      next.has(stage) ? next.delete(stage) : next.add(stage);
+      if (next.has(stage)) { next.delete(stage); } else { next.add(stage); }
       return next;
     });
   };
@@ -96,6 +96,8 @@ export function MobileGraphList() {
               variants={tapVariants}
               whileTap="tap"
               onClick={() => toggleStage(stage)}
+              aria-expanded={isOpen}
+              aria-label={`${label} — ${items.length} projects`}
               style={{
                 width: '100%',
                 padding: '14px 16px',

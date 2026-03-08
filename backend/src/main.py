@@ -8,7 +8,10 @@ Redis pub/sub and this restriction can be lifted.
 """
 
 import logging
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -162,6 +165,51 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Request logging middleware
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    logger.info(
+        "%s %s %d %dms",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
+
+
+# ---------------------------------------------------------------------------
+# In-memory rate limiter for agent trigger endpoints
+# Limit: 10 requests per minute per user (keyed by Bearer token prefix)
+# ---------------------------------------------------------------------------
+
+_rate_limit_store: dict = defaultdict(list)
+_AGENT_RATE_LIMIT = 10   # max requests per window
+_AGENT_RATE_WINDOW = 60  # seconds
+
+
+@app.middleware("http")
+async def agent_rate_limiter(request: Request, call_next):
+    if request.url.path.endswith("/agents/run") and request.method == "POST":
+        auth = request.headers.get("Authorization", "")
+        key = auth[:40] if auth else request.client.host if request.client else "anon"
+        now = time.time()
+        _rate_limit_store[key] = [t for t in _rate_limit_store[key] if now - t < _AGENT_RATE_WINDOW]
+        if len(_rate_limit_store[key]) >= _AGENT_RATE_LIMIT:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={"detail": f"Rate limit exceeded: max {_AGENT_RATE_LIMIT} agent runs per minute"},
+            )
+        _rate_limit_store[key].append(now)
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------

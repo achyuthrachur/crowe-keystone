@@ -76,7 +76,7 @@ function SectionBlock({ title, items, emptyLabel, accentColor }: {
 export default function DailyPage() {
   const shouldReduce = useReducedMotion();
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const { data, isLoading, error } = useSWR(`${BACKEND_URL}/api/v1/daily`, fetchDaily, { revalidateOnFocus: false });
+  const { data, isLoading, error, mutate } = useSWR(`${BACKEND_URL}/api/v1/daily`, fetchDaily, { revalidateOnFocus: false });
 
   const brief = data?.brief ?? {};
   const isGenerating = data?.status === 'generating';
@@ -106,9 +106,21 @@ export default function DailyPage() {
           ))}
         </div>
       ) : error ? (
-        <p style={{ color: 'var(--coral)', fontSize: 13, fontFamily: 'var(--font-geist-sans)' }}>
-          Failed to load daily brief.
-        </p>
+        <div style={{ textAlign: 'center', padding: 48 }}>
+          <p style={{ color: 'var(--coral)', fontSize: 13, fontFamily: 'var(--font-geist-sans)', marginBottom: 12 }}>
+            Failed to load daily brief.
+          </p>
+          <button
+            onClick={() => void mutate()}
+            style={{
+              height: 34, padding: '0 16px', borderRadius: 8, border: 'none',
+              background: 'var(--amber-core)', color: 'var(--surface-base)',
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-geist-sans)', cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           {isGenerating && (

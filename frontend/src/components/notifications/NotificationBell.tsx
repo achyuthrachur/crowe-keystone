@@ -29,6 +29,9 @@ export function NotificationBell() {
     <>
       <motion.button
         data-testid="notification-bell"
+        aria-label={pendingCount > 0 ? `Notifications — ${pendingCount} pending` : 'Notifications'}
+        aria-expanded={open}
+        aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
         animate={
           bouncing && !shouldReduce

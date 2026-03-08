@@ -121,6 +121,7 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
             )}
             <button
               onClick={onClose}
+              aria-label="Close notifications"
               style={{
                 background: 'none',
                 border: 'none',

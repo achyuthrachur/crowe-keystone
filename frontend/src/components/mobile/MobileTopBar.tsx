@@ -21,16 +21,17 @@ export function MobileTopBar({ title, action }: MobileTopBarProps) {
         paddingTop: 'env(safe-area-inset-top)',
       }}
     >
-      <span
+      <h1
         style={{
           fontSize: 16,
           fontWeight: 600,
           color: 'var(--text-primary)',
           fontFamily: 'var(--font-geist-sans)',
+          margin: 0,
         }}
       >
         {title}
-      </span>
+      </h1>
       {action && (
         <div style={{ display: 'flex', alignItems: 'center' }}>{action}</div>
       )}

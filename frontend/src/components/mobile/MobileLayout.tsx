@@ -2,6 +2,7 @@
 
 import { MobileTopBar } from './MobileTopBar';
 import { BottomNav } from './BottomNav';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { usePathname } from 'next/navigation';
 
 const ROUTE_TITLES: Record<string, string> = {
@@ -43,7 +44,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
         position: 'relative',
       }}
     >
-      <MobileTopBar title={title} />
+      <MobileTopBar title={title} action={<NotificationBell />} />
       <main
         className="scroll-momentum"
         style={{

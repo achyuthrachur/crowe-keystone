@@ -1,12 +1,20 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { Menu, X } from 'lucide-react';
 import { ViewportToggle } from './ViewportToggle';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { useNotificationStore } from '@/stores/notifications.store';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-export function TopBar() {
+interface TopBarProps {
+  onMenuToggle?: () => void;
+  sidebarOpen?: boolean;
+}
+
+export function TopBar({ onMenuToggle, sidebarOpen }: TopBarProps) {
   const lastPrdUpdate = useNotificationStore((s) => s.lastPrdUpdate);
+  const isNarrow = useMediaQuery('(max-width: 600px)');
 
   return (
     <header
@@ -25,6 +33,23 @@ export function TopBar() {
         flexShrink: 0,
       }}
     >
+      {/* Hamburger (mobile only — shown when onMenuToggle is provided) */}
+      {onMenuToggle && (
+        <button
+          onClick={onMenuToggle}
+          aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+          aria-expanded={sidebarOpen}
+          style={{
+            width: 32, height: 32, borderRadius: 8, border: 'none',
+            background: 'transparent', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text-secondary)', flexShrink: 0,
+          }}
+        >
+          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+      )}
+
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <div
@@ -56,11 +81,12 @@ export function TopBar() {
         </span>
       </div>
 
-      {/* Search bar (center) */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+      {/* Search bar (center) — hidden on narrow viewports */}
+      <div style={{ flex: 1, display: isNarrow ? 'none' : 'flex', justifyContent: 'center', minWidth: 0 }}>
         <div
           style={{
-            width: 320,
+            width: '100%',
+            maxWidth: 320,
             height: 32,
             background: 'var(--surface-input)',
             borderRadius: 8,
@@ -101,35 +127,37 @@ export function TopBar() {
 
       {/* Right side controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        {/* PRD version badge — appears briefly after prd.updated SSE fires */}
-        <AnimatePresence>
-          {lastPrdUpdate && (
-            <motion.span
-              key={`prd-${lastPrdUpdate.project_id}-${lastPrdUpdate.version}`}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.15 }}
-              data-testid="prd-version-badge"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '2px 8px',
-                borderRadius: 999,
-                fontSize: 11,
-                fontWeight: 600,
-                background: 'var(--amber-glow)',
-                border: '1px solid var(--amber-core)',
-                color: 'var(--amber-core)',
-                fontFamily: 'var(--font-geist-mono)',
-              }}
-            >
-              PRD v{lastPrdUpdate.version}
-            </motion.span>
-          )}
-        </AnimatePresence>
-        <ViewportToggle />
+        {/* PRD version badge — appears briefly after prd.updated SSE fires, hidden on narrow */}
+        {!isNarrow && (
+          <AnimatePresence>
+            {lastPrdUpdate && (
+              <motion.span
+                key={`prd-${lastPrdUpdate.project_id}-${lastPrdUpdate.version}`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.15 }}
+                data-testid="prd-version-badge"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  background: 'var(--amber-glow)',
+                  border: '1px solid var(--amber-core)',
+                  color: 'var(--amber-core)',
+                  fontFamily: 'var(--font-geist-mono)',
+                }}
+              >
+                PRD v{lastPrdUpdate.version}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        )}
+        {!isNarrow && <ViewportToggle />}
         <NotificationBell />
 
         {/* User avatar */}

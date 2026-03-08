@@ -17,7 +17,7 @@ export function MobileProjectCard({ project }: MobileProjectCardProps) {
 
   return (
     <motion.div
-      data-testid="mobile-project-card"
+      data-testid="project-card"
       variants={navTapVariants}
       whileTap="tap"
       onClick={() => router.push(`/projects/${project.id}`)}

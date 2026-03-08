@@ -200,7 +200,7 @@ async def _run_graph_task(
             },
         )
 
-    except Exception as exc:
+    except BaseException as exc:
         logger.exception("_run_graph_task failed for run_id=%s: %s", run_id, str(exc))
 
         async with AsyncSessionLocal() as db:

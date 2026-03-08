@@ -10,19 +10,17 @@ interface ViewportState {
 
 function detectMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.matchMedia('(pointer: coarse)').matches;
+  // Use viewport width (reliable across headless browsers) combined with pointer check.
+  // pointer: coarse alone can return true in headless environments at desktop widths.
+  return window.innerWidth < 768 && window.matchMedia('(pointer: coarse)').matches;
 }
 
 export const useViewportStore = create<ViewportState>((set) => ({
   mode: 'web',
-  isMobileDevice: detectMobileDevice(),
+  // Always start false to match SSR. AppShell.tsx updates this via useEffect after hydration.
+  isMobileDevice: false,
   setMode: (mode) => set({ mode }),
 }));
 
-// Re-detect on client
-if (typeof window !== 'undefined') {
-  const mq = window.matchMedia('(pointer: coarse)');
-  mq.addEventListener('change', (e) => {
-    useViewportStore.setState({ isMobileDevice: e.matches });
-  });
-}
+// Export detectMobileDevice so AppShell can call it in useEffect
+export { detectMobileDevice };
