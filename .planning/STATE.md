@@ -27,7 +27,7 @@ Phase 2 goal: Full stage graph. Stage advance creates approvals. Approvals visib
 | Phase 5: LangGraph Engine | ✓ Complete | 2026-03-07 |
 | Phase 6: Agent Integration | ✓ Complete | 2026-03-07 |
 | Phase 7: Integrations + Memory + Settings | ✓ Complete | 2026-03-07 |
-| Phase 8: Polish + Performance + Production | ○ Pending | — |
+| Phase 8: Polish + Performance + Production | ✓ Complete | 2026-03-08 |
 
 ## Phase 5 Completion Notes (2026-03-07)
 
@@ -58,6 +58,9 @@ Phase 3 completion notes:
 - asyncpg SSL: ssl_context connect_arg (not sslmode in URL)
 - Alembic sync: channel_binding=disable in DATABASE_URL_SYNC
 - gh CLI: /c/Users/RachurA/AppData/Local/gh-cli/bin/gh (authenticated)
+- Fly CLI: /c/Users/RachurA/.fly/bin/flyctl (v0.4.19) — backend deploys to Fly.io (NOT Railway)
+- Backend deploy: fly.toml in backend/ → app=crowe-keystone-api, region=ord, 512mb, SSE-safe (auto_stop=false)
+- Frontend deploy: Vercel — https://crowe-keystone.vercel.app (live)
 - Frontend dev port: 3002 (3000/3001 occupied)
 - Phase 2 migration: 002_phase2 (head) — approvals + conflicts tables live
 
