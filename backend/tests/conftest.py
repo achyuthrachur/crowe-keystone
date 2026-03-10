@@ -20,6 +20,10 @@ def shared_event_loop():
     in test_phase1.py) would have already bound engine connections to the original
     loop, causing 'Future attached to a different loop' errors in TestClient tests.
     """
-    loop = asyncio.get_event_loop()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     yield loop
     # Do NOT close — pytest-asyncio owns this loop's lifecycle.

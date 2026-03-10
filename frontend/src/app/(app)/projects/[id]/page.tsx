@@ -31,6 +31,230 @@ interface ProjectDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
+// ── Build Log Tab ─────────────────────────────────────────────────────────────
+
+const HEALTH_STYLES: Record<string, { color: string; label: string }> = {
+  on_track:          { color: 'var(--teal)',      label: 'On track' },
+  ahead_of_schedule: { color: 'var(--teal)',      label: 'Ahead' },
+  scope_growing:     { color: 'var(--amber-core)', label: 'Scope growing' },
+  blocked:           { color: 'var(--coral)',     label: 'Blocked' },
+};
+
+function BuildLogTab({ project, projectId, onLogUpdate }: { project: Project; projectId: string; onLogUpdate: () => void }) {
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submitNotes() {
+    if (!notes.trim()) return;
+    setSubmitting(true);
+    try {
+      await apiRequest(`/projects/${projectId}/build-log`, {
+        method: 'POST',
+        body: JSON.stringify({ raw_notes: notes.trim(), source: 'manual' }),
+      });
+      setNotes('');
+      onLogUpdate();
+    } catch (err) {
+      console.error('[BuildLog] submit failed:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const log = project.build_log ?? [];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Log entry input */}
+      <div style={{ background: 'var(--surface-elevated)', borderRadius: 10, border: '1px solid var(--border-subtle)', padding: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)', marginBottom: 8 }}>
+          Log a build update
+        </div>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="What shipped? What's blocked? What changed?"
+          rows={3}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: 'var(--surface-input)', border: '1px solid var(--border-default)',
+            borderRadius: 8, padding: '10px 12px',
+            color: 'var(--text-primary)', fontSize: 13,
+            fontFamily: 'var(--font-geist-sans)', outline: 'none', resize: 'vertical',
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button
+            onClick={() => void submitNotes()}
+            disabled={!notes.trim() || submitting}
+            style={{
+              height: 32, padding: '0 16px', borderRadius: 8, border: 'none',
+              background: notes.trim() && !submitting ? 'var(--amber-core)' : 'var(--surface-input)',
+              color: notes.trim() && !submitting ? 'var(--surface-base)' : 'var(--text-tertiary)',
+              fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-geist-sans)',
+              cursor: notes.trim() && !submitting ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {submitting ? 'Logging...' : 'Log Update'}
+          </button>
+        </div>
+      </div>
+
+      {/* Log entries */}
+      {log.length === 0 ? (
+        <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13, fontFamily: 'var(--font-geist-sans)' }}>
+          No build updates yet. Log the first update above.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[...log].reverse().map((entry, i) => {
+            const health = entry.build_health ? HEALTH_STYLES[entry.build_health] : null;
+            const ts = new Date(entry.timestamp);
+            return (
+              <div key={i} style={{ background: 'var(--surface-elevated)', borderRadius: 10, border: '1px solid var(--border-subtle)', padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontFamily: 'var(--font-geist-mono)' }}>
+                    {ts.toLocaleDateString()} {ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-tertiary)', fontFamily: 'var(--font-geist-sans)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {entry.source}
+                  </span>
+                  {health && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: health.color, fontFamily: 'var(--font-geist-sans)' }}>
+                      · {health.label}
+                    </span>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-sans)', lineHeight: 1.6 }}>
+                  {entry.content}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Retro Tab ─────────────────────────────────────────────────────────────────
+
+interface RetroData {
+  id: string;
+  project_id: string;
+  built_vs_scoped: string;
+  decisions_changed: string[];
+  learnings: string[];
+  what_would_change: string[];
+  quality_signals: Record<string, unknown> | null;
+  published: boolean;
+}
+
+async function fetchRetro(url: string): Promise<RetroData | null> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('keystone_token') : null;
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Retro fetch ${res.status}`);
+  return res.json() as Promise<RetroData>;
+}
+
+function RetroTab({ project, projectId }: { project: Project; projectId: string }) {
+  const retroUrl = `${BACKEND_URL}/api/v1/projects/${projectId}/retrospective`;
+  const { data: retro, isLoading } = useSWR<RetroData | null>(retroUrl, fetchRetro);
+  const [generating, setGenerating] = useState(false);
+
+  async function generateRetro() {
+    setGenerating(true);
+    try {
+      await apiRequest('/agents/run', {
+        method: 'POST',
+        body: JSON.stringify({ agent_type: 'retro_generator', project_id: projectId, input_data: {} }),
+      });
+    } catch (err) {
+      console.error('[RetroTab] generate failed:', err);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  if (isLoading) {
+    return <div style={{ padding: 24, color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)', fontSize: 13 }}>Loading...</div>;
+  }
+
+  if (!retro) {
+    const canGenerate = project.stage === 'shipped' || project.stage === 'retrospective';
+    return (
+      <div style={{ padding: '40px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 28 }}>◍</span>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-sans)' }}>
+          No retrospective yet
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)', maxWidth: 300, lineHeight: 1.6 }}>
+          {canGenerate ? 'Generate an AI retrospective from the build history and PRD.' : 'Retrospective becomes available after the project ships.'}
+        </p>
+        {canGenerate && (
+          <button
+            onClick={() => void generateRetro()}
+            disabled={generating}
+            style={{
+              marginTop: 4, height: 36, padding: '0 18px', borderRadius: 8, border: 'none',
+              background: generating ? 'var(--surface-input)' : 'var(--amber-core)',
+              color: generating ? 'var(--text-tertiary)' : 'var(--surface-base)',
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-geist-sans)',
+              cursor: generating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {generating ? 'Generating...' : 'Generate Retrospective →'}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {retro.built_vs_scoped && (
+        <div style={{ background: 'var(--surface-elevated)', borderRadius: 10, border: '1px solid var(--border-subtle)', padding: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', fontFamily: 'var(--font-geist-sans)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+            Built vs Scoped
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-sans)', lineHeight: 1.7 }}>
+            {retro.built_vs_scoped}
+          </p>
+        </div>
+      )}
+      {[
+        { title: 'Learnings', items: retro.learnings, color: 'var(--teal)' },
+        { title: 'What Changed', items: retro.decisions_changed, color: 'var(--amber-core)' },
+        { title: 'Would Do Differently', items: retro.what_would_change, color: 'var(--violet)' },
+      ].map(({ title, items, color }) =>
+        items?.length > 0 ? (
+          <div key={title} style={{ background: 'var(--surface-elevated)', borderRadius: 10, border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 3, height: 14, background: color, borderRadius: 999 }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-sans)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {title}
+              </span>
+            </div>
+            <ul style={{ margin: 0, padding: '12px 14px 12px 28px' }}>
+              {items.map((item, i) => (
+                <li key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-geist-sans)', lineHeight: 1.7, marginBottom: 4 }}>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null
+      )}
+    </div>
+  );
+}
+
+// ── Stage Actions ─────────────────────────────────────────────────────────────
+
 const STAGE_ACTIONS: Record<string, Array<{ label: string; icon: string; action: string }>> = {
   spark:     [{ label: 'Generate Brief', icon: '⚡', action: 'trigger_brief_generator' }],
   brief:     [
@@ -323,25 +547,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 exit={shouldReduce ? undefined : { opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
               >
-                <div
-                  style={{
-                    padding: 20,
-                    background: 'var(--surface-elevated)',
-                    borderRadius: 10,
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <p
-                    style={{
-                      color: 'var(--text-secondary)',
-                      fontSize: 14,
-                      fontFamily: 'var(--font-geist-sans)',
-                      margin: 0,
-                    }}
-                  >
-                    Build log coming in Phase 5.
-                  </p>
-                </div>
+                <BuildLogTab project={project} onLogUpdate={() => void mutate(`${BACKEND_URL}/api/v1/projects/${id}`)} projectId={id} />
               </motion.div>
             )}
 
@@ -353,25 +559,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailPageProps) {
                 exit={shouldReduce ? undefined : { opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
               >
-                <div
-                  style={{
-                    padding: 20,
-                    background: 'var(--surface-elevated)',
-                    borderRadius: 10,
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <p
-                    style={{
-                      color: 'var(--text-secondary)',
-                      fontSize: 14,
-                      fontFamily: 'var(--font-geist-sans)',
-                      margin: 0,
-                    }}
-                  >
-                    Retrospective view coming in Phase 5.
-                  </p>
-                </div>
+                <RetroTab project={project} projectId={id} />
               </motion.div>
             )}
           </AnimatePresence>

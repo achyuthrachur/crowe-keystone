@@ -87,6 +87,8 @@ _VALID_AGENT_TYPES = {
     "daily_brief_generator",
     "update_writer",
     "approval_router",
+    "retro_generator",
+    "memory_indexer",
 }
 
 
@@ -115,13 +117,39 @@ def _select_graph(agent_type: str):
     if agent_type == "approval_router":
         return build_approval_routing_graph()
 
-    # update_writer: single node run — wrap in a minimal pass-through graph
+    # retro_generator: generate retrospective, then persist to retrospectives table
+    if agent_type == "retro_generator":
+        from src.graph.nodes.retro_generator import retro_generator_node
+        from src.graph.nodes.retro_persister import retro_persister_node
+        from langgraph.graph import StateGraph, END
+        g = StateGraph(KeystoneState)
+        g.add_node("retro_generator", retro_generator_node)
+        g.add_node("retro_persister", retro_persister_node)
+        g.set_entry_point("retro_generator")
+        g.add_edge("retro_generator", "retro_persister")
+        g.add_edge("retro_persister", END)
+        return g.compile()
+
+    # memory_indexer: index published retrospective into team memory
+    if agent_type == "memory_indexer":
+        from src.graph.nodes.memory_indexer import memory_indexer_node
+        from langgraph.graph import StateGraph, END
+        g = StateGraph(KeystoneState)
+        g.add_node("memory_indexer", memory_indexer_node)
+        g.set_entry_point("memory_indexer")
+        g.add_edge("memory_indexer", END)
+        return g.compile()
+
+    # update_writer: generate structured update, then persist to project.build_log
     from src.graph.nodes.update_writer import update_writer_node
+    from src.graph.nodes.build_log_persister import build_log_persister_node
     from langgraph.graph import StateGraph, END
     g = StateGraph(KeystoneState)
     g.add_node("update_writer", update_writer_node)
+    g.add_node("build_log_persister", build_log_persister_node)
     g.set_entry_point("update_writer")
-    g.add_edge("update_writer", END)
+    g.add_edge("update_writer", "build_log_persister")
+    g.add_edge("build_log_persister", END)
     return g.compile()
 
 

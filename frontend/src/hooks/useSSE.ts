@@ -219,7 +219,9 @@ export function useSSE(): UseSSEResult {
         });
       },
 
-      onProjectBuildLogUpdated: () => {},
+      onProjectBuildLogUpdated: (event) => {
+        void mutate(`${BACKEND_URL}/api/v1/projects/${event.data.project_id}`);
+      },
       onPrdUpdated: (event) => {
         void mutate(`${BACKEND_URL}/api/v1/projects/${event.data.project_id}/prd`);
         // Track last PRD update in store — drives the TopBar badge

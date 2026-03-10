@@ -65,6 +65,8 @@ from src.graph.nodes.daily_brief_persister import (
     daily_brief_notifier_node,
 )
 from src.graph.nodes.approval_router import approval_router_node
+from src.graph.nodes.prd_persister import prd_persister_node
+from src.graph.nodes.build_log_persister import build_log_persister_node
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +162,7 @@ def build_prd_architect_graph(database_url: str | None = None) -> Any:
     graph.add_node("open_question_extractor", open_question_extractor_node)
     graph.add_node("prompt_writer",           claude_code_prompt_writer_node)
     graph.add_node("quality_gate",            quality_gate_node)
+    graph.add_node("prd_persister",           prd_persister_node)
 
     # ── Entry point ───────────────────────────────────────────────────────────
     graph.set_entry_point("context_loader")
@@ -234,11 +237,12 @@ def build_prd_architect_graph(database_url: str | None = None) -> Any:
         "quality_gate",
         evaluate_quality,
         {
-            "pass":   END,
+            "pass":   "prd_persister",
             "revise": "section_merger",
-            "fail":   END,
+            "fail":   "prd_persister",  # persist best effort on fail too
         },
     )
+    graph.add_edge("prd_persister", END)
 
     # ── Compile with optional checkpointer ───────────────────────────────────
     if database_url:

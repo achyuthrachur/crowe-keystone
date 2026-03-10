@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import { motion, AnimatePresence } from 'framer-motion';
 import { accordionVariants, agentDotVariants, tapVariants } from '@/lib/motion';
@@ -9,6 +9,7 @@ import type { Project } from '@/lib/api';
 import { PRDAccordion, type PRD } from '@/components/prd/PRDAccordion';
 import { useAgentStore } from '@/stores/agent.store';
 import { AgentThinking } from '@/components/agents/AgentThinking';
+import { apiRequest } from '@/lib/api';
 
 // ── SWR fetcher ──────────────────────────────────────────────────
 
@@ -33,9 +34,60 @@ interface MobileProjectDetailProps {
 
 // ── Component ────────────────────────────────────────────────────
 
+function MobileGeneratePRDButton({ projectId, sparkContent }: { projectId: string; sparkContent: string | null }) {
+  const [running, setRunning] = useState(false);
+
+  const handleTap = useCallback(async () => {
+    if (running) return;
+    setRunning(true);
+    try {
+      await apiRequest('/agents/run', {
+        method: 'POST',
+        body: JSON.stringify({
+          agent_type: 'prd_drafter',
+          project_id: projectId,
+          input_data: { raw_input: sparkContent ?? '' },
+        }),
+      });
+    } catch (err) {
+      console.error('[MobileGeneratePRD] failed:', err);
+    } finally {
+      setRunning(false);
+    }
+  }, [running, projectId, sparkContent]);
+
+  return (
+    <motion.button
+      variants={tapVariants}
+      whileTap="tap"
+      style={{
+        height: 44,
+        width: '100%',
+        borderRadius: 8,
+        border: 'none',
+        background: running ? 'var(--surface-input)' : 'var(--amber-core)',
+        color: running ? 'var(--text-tertiary)' : 'var(--text-inverse)',
+        fontSize: 14,
+        fontWeight: 600,
+        fontFamily: 'var(--font-geist-sans)',
+        cursor: running ? 'not-allowed' : 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+        boxShadow: running ? 'none' : '0 4px 16px rgba(245,168,0,0.20)',
+      }}
+      onClick={() => void handleTap()}
+    >
+      {running ? 'Starting...' : 'Generate Full PRD'}
+    </motion.button>
+  );
+}
+
 export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['prd']));
   const [agentStatusVisible, setAgentStatusVisible] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
+  const [logNote, setLogNote] = useState('');
+  const [showLogInput, setShowLogInput] = useState(false);
+  const [submittingLog, setSubmittingLog] = useState(false);
   const currentStageIndex = STAGE_ORDER.indexOf(project.stage as Stage);
   const stageColor = STAGE_COLORS[project.stage as Stage];
   const activeRun = useAgentStore((s) => s.activeRunForProject(project.id));
@@ -170,42 +222,121 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
 
       {/* ── Quick actions ────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {currentStageIndex < STAGE_ORDER.length - 1 && (
         <motion.button
           variants={tapVariants}
           whileTap="tap"
+          onClick={() => {
+            if (advancing) return;
+            const nextStage = STAGE_ORDER[currentStageIndex + 1];
+            if (!nextStage) return;
+            setAdvancing(true);
+            void apiRequest(`/projects/${project.id}/advance`, {
+              method: 'POST',
+              body: JSON.stringify({ target_stage: nextStage }),
+            })
+              .catch((e) => console.error('[MobileDetail] advance failed:', e))
+              .finally(() => setAdvancing(false));
+          }}
           style={{
             height: 44,
             borderRadius: 8,
             border: 'none',
-            background: 'var(--amber-core)',
-            color: 'var(--text-inverse)',
+            background: advancing ? 'var(--surface-input)' : 'var(--amber-core)',
+            color: advancing ? 'var(--text-tertiary)' : 'var(--text-inverse)',
             fontSize: 14,
             fontWeight: 600,
             fontFamily: 'var(--font-geist-sans)',
-            cursor: 'pointer',
+            cursor: advancing ? 'not-allowed' : 'pointer',
             WebkitTapHighlightColor: 'transparent',
           }}
         >
-          Advance Stage →
+          {advancing ? 'Advancing...' : 'Advance Stage →'}
         </motion.button>
+        )}
 
-        <motion.button
-          variants={tapVariants}
-          whileTap="tap"
-          style={{
-            height: 44,
-            borderRadius: 8,
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--surface-input)',
-            color: 'var(--text-secondary)',
-            fontSize: 14,
-            fontFamily: 'var(--font-geist-sans)',
-            cursor: 'pointer',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          Log Update
-        </motion.button>
+        {showLogInput ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <textarea
+              value={logNote}
+              onChange={(e) => setLogNote(e.target.value)}
+              placeholder="What did you build or ship?"
+              rows={3}
+              style={{
+                width: '100%',
+                borderRadius: 8,
+                border: '1px solid var(--border-default)',
+                background: 'var(--surface-input)',
+                color: 'var(--text-primary)',
+                fontSize: 13,
+                fontFamily: 'var(--font-geist-sans)',
+                padding: '10px 12px',
+                resize: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <motion.button
+                variants={tapVariants}
+                whileTap="tap"
+                onClick={() => {
+                  if (submittingLog || !logNote.trim()) return;
+                  setSubmittingLog(true);
+                  void apiRequest(`/projects/${project.id}/build-log`, {
+                    method: 'POST',
+                    body: JSON.stringify({ raw_build_notes: logNote.trim() }),
+                  })
+                    .then(() => { setLogNote(''); setShowLogInput(false); })
+                    .catch((e) => console.error('[MobileDetail] log failed:', e))
+                    .finally(() => setSubmittingLog(false));
+                }}
+                style={{
+                  flex: 1, height: 40, borderRadius: 8, border: 'none',
+                  background: 'var(--teal)', color: 'var(--text-inverse)',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-geist-sans)',
+                  cursor: submittingLog ? 'not-allowed' : 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                {submittingLog ? 'Saving...' : 'Save'}
+              </motion.button>
+              <motion.button
+                variants={tapVariants}
+                whileTap="tap"
+                onClick={() => { setShowLogInput(false); setLogNote(''); }}
+                style={{
+                  height: 40, padding: '0 14px', borderRadius: 8,
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--surface-input)',
+                  color: 'var(--text-secondary)',
+                  fontSize: 13, fontFamily: 'var(--font-geist-sans)',
+                  cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                Cancel
+              </motion.button>
+            </div>
+          </div>
+        ) : (
+          <motion.button
+            variants={tapVariants}
+            whileTap="tap"
+            onClick={() => setShowLogInput(true)}
+            style={{
+              height: 44,
+              borderRadius: 8,
+              border: '1px solid var(--border-subtle)',
+              background: 'var(--surface-input)',
+              color: 'var(--text-secondary)',
+              fontSize: 14,
+              fontFamily: 'var(--font-geist-sans)',
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            Log Update
+          </motion.button>
+        )}
       </div>
 
       {/* ── PRD Accordion section ────────────────────────────── */}
@@ -359,30 +490,7 @@ export function MobileProjectDetail({ project }: MobileProjectDetailProps) {
                     Generate one to unlock full planning.
                   </p>
 
-                  {/* Generate Full PRD — stub button. Phase 5 wires the agent trigger. */}
-                  <motion.button
-                    variants={tapVariants}
-                    whileTap="tap"
-                    style={{
-                      height: 44,
-                      width: '100%',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: 'var(--amber-core)',
-                      color: 'var(--text-inverse)',
-                      fontSize: 14,
-                      fontWeight: 600,
-                      fontFamily: 'var(--font-geist-sans)',
-                      cursor: 'pointer',
-                      WebkitTapHighlightColor: 'transparent',
-                      boxShadow: '0 4px 16px rgba(245,168,0,0.20)',
-                    }}
-                    onClick={() => {
-                      // TODO Phase 5: POST /api/v1/agents/run with agent_type='prd_architect'
-                    }}
-                  >
-                    Generate Full PRD
-                  </motion.button>
+                  <MobileGeneratePRDButton projectId={project.id} sparkContent={project.spark_content} />
                 </div>
               )}
             </div>
