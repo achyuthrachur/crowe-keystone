@@ -28,13 +28,22 @@ interface ThemeStore {
 
 export const useThemeStore = create<ThemeStore>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       preference: 'dark',
       resolved: 'dark',
       setTheme: (preference) => {
         const resolved = resolveTheme(preference);
         applyTheme(resolved);
         set({ preference, resolved });
+        // Write directly to localStorage so the anti-FOUC script gets the updated
+        // preference on reload — Zustand v5 persist may write asynchronously.
+        if (typeof localStorage !== 'undefined') {
+          try {
+            const existing = JSON.parse(localStorage.getItem('keystone-theme') || '{}');
+            existing.state = { ...(existing.state || {}), preference };
+            localStorage.setItem('keystone-theme', JSON.stringify(existing));
+          } catch { /* ignore */ }
+        }
       },
       initTheme: () => {
         // Read directly from localStorage (same source as FOUC script) so this

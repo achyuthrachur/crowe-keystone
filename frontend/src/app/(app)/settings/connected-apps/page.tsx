@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { connectedBadgeVariants } from '@/lib/motion';
 import { apiRequest } from '@/lib/api';
@@ -13,32 +12,17 @@ interface VercelStatus {
 }
 
 function ConnectedAppsContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const shouldReduce = useReducedMotion();
   const [status, setStatus] = useState<VercelStatus | null>(null);
+  const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
-  const [error, setError] = useState('');
-
-  const vercelCode = searchParams.get('vercel_code');
-  const vercelState = searchParams.get('vercel_state');
-  const vercelError = searchParams.get('vercel_error');
+  const [tokenError, setTokenError] = useState('');
 
   useEffect(() => {
     loadStatus();
   }, []);
-
-  useEffect(() => {
-    if (vercelCode && vercelState) {
-      handleCallback(vercelCode, vercelState);
-    }
-    if (vercelError) {
-      setError(`Vercel connection failed: ${vercelError}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vercelCode, vercelState, vercelError]);
 
   async function loadStatus() {
     try {
@@ -49,28 +33,26 @@ function ConnectedAppsContent() {
     }
   }
 
-  async function handleCallback(code: string, state: string) {
+  async function connectWithToken() {
+    if (!token.trim()) return;
     setConnecting(true);
+    setTokenError('');
     try {
-      await apiRequest('/integrations/vercel/callback', {
-        method: 'POST',
-        body: JSON.stringify({ code, state }),
-      });
+      await apiRequest<{ connected: boolean; vercel_user_name: string; projects_imported: number }>(
+        '/integrations/vercel/connect',
+        { method: 'POST', body: JSON.stringify({ access_token: token }) }
+      );
+      setToken('');
       await loadStatus();
-      router.replace('/settings/connected-apps');
-    } catch {
-      setError('Failed to connect Vercel. Please try again.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Connection failed';
+      setTokenError(
+        msg.includes('Invalid') || msg.includes('invalid')
+          ? 'Invalid token. Check it was copied correctly and has not expired.'
+          : msg
+      );
     } finally {
       setConnecting(false);
-    }
-  }
-
-  async function connectVercel() {
-    try {
-      const { url } = await apiRequest<{ url: string }>('/integrations/vercel/auth-url');
-      window.location.href = url;
-    } catch {
-      setError('Vercel integration is not configured yet. See manual setup instructions.');
     }
   }
 
@@ -95,91 +77,154 @@ function ConnectedAppsContent() {
       await apiRequest('/integrations/vercel/disconnect', { method: 'DELETE' });
       await loadStatus();
     } catch {
-      setError('Failed to disconnect.');
+      // ignore
     }
   }
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 24 }}>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 24, fontFamily: 'var(--font-geist-sans)' }}>
         Connected Apps
       </h1>
 
-      {error && (
-        <div style={{ background: 'var(--coral-glow)', border: '1px solid var(--border-coral)',
-          borderRadius: 10, padding: '12px 16px', marginBottom: 20, color: 'var(--coral)', fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-
-      {connecting && (
-        <div style={{ background: 'var(--amber-glow)', border: '1px solid var(--border-amber)',
-          borderRadius: 12, padding: '24px', textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 24, marginBottom: 8 }}>...</div>
-          <p style={{ color: 'var(--amber-core)', fontSize: 14, fontWeight: 600 }}>
-            Connecting to Vercel...
-          </p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
-            Importing your projects...
-          </p>
-        </div>
-      )}
-
-      <div style={{ background: 'var(--surface-elevated)', border: '1px solid var(--border-subtle)',
-        borderRadius: 12, padding: '20px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div style={{
+        background: 'var(--surface-elevated)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 12,
+        padding: '20px 24px',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 18 }}>&#9650;</span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>Vercel</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-sans)' }}>
+              Vercel
+            </span>
             <AnimatePresence>
               {status?.connected && (
                 <motion.span
                   variants={shouldReduce ? undefined : connectedBadgeVariants}
                   initial={shouldReduce ? undefined : 'initial'}
                   animate={shouldReduce ? undefined : 'animate'}
-                  style={{ fontSize: 11, color: 'var(--teal)', background: 'var(--teal-glow)',
-                    border: '1px solid var(--border-teal)', borderRadius: 999,
-                    padding: '2px 8px', fontWeight: 600 }}>
+                  style={{
+                    fontSize: 11, color: 'var(--teal)',
+                    background: 'var(--teal-glow)',
+                    border: '1px solid var(--border-teal)',
+                    borderRadius: 999, padding: '2px 8px', fontWeight: 600,
+                    fontFamily: 'var(--font-geist-sans)',
+                  }}
+                >
                   Connected
                 </motion.span>
               )}
             </AnimatePresence>
           </div>
           {status?.connected && (
-            <button onClick={disconnect} style={{ fontSize: 12, color: 'var(--text-tertiary)',
-              background: 'none', border: '1px solid var(--border-default)', borderRadius: 6,
-              padding: '4px 10px', cursor: 'pointer' }}>
+            <button
+              onClick={disconnect}
+              style={{
+                fontSize: 12, color: 'var(--text-tertiary)',
+                background: 'none', border: '1px solid var(--border-default)',
+                borderRadius: 6, padding: '4px 10px', cursor: 'pointer',
+                fontFamily: 'var(--font-geist-sans)',
+              }}
+            >
               Disconnect
             </button>
           )}
         </div>
 
-        {!status?.connected ? (
+        {/* Disconnected state */}
+        {!status?.connected && (
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
-              Connect your Vercel account to import your projects automatically.
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12, lineHeight: 1.6, fontFamily: 'var(--font-geist-sans)' }}>
+              Connect your Vercel account to import projects automatically.
+              Your projects sync whenever you click Sync.
             </p>
-            <button onClick={connectVercel} style={{ height: 40, padding: '0 20px',
-              background: 'var(--indigo-dark)', color: 'var(--text-inverse)',
-              border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-              Connect Vercel
-            </button>
+
+            {/* Instructions */}
+            <div style={{
+              background: 'var(--surface-input)', borderRadius: 8,
+              padding: '12px 14px', marginBottom: 16,
+              border: '1px solid var(--border-subtle)',
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6, fontFamily: 'var(--font-geist-sans)' }}>
+                How to get your token:
+              </p>
+              <ol style={{ fontSize: 12, color: 'var(--text-secondary)', paddingLeft: 16, margin: 0, lineHeight: 1.8, fontFamily: 'var(--font-geist-sans)' }}>
+                <li>Go to <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener" style={{ color: 'var(--amber-core)' }}>vercel.com/account/tokens</a></li>
+                <li>Click Create Token → name it &quot;Crowe Keystone&quot;</li>
+                <li>Set no expiry → copy the token</li>
+                <li>Paste it below</li>
+              </ol>
+            </div>
+
+            {/* Token input */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="password"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && connectWithToken()}
+                placeholder="Paste your Vercel token..."
+                style={{
+                  flex: 1, height: 40,
+                  background: 'var(--surface-input)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 8, padding: '0 12px',
+                  color: 'var(--text-primary)', fontSize: 13,
+                  fontFamily: 'var(--font-geist-sans)', outline: 'none',
+                }}
+              />
+              <button
+                onClick={connectWithToken}
+                disabled={!token.trim() || connecting}
+                style={{
+                  height: 40, padding: '0 18px',
+                  background: 'var(--indigo-dark)',
+                  color: 'var(--text-inverse)',
+                  border: 'none', borderRadius: 8,
+                  fontSize: 13, fontWeight: 600,
+                  cursor: !token.trim() || connecting ? 'not-allowed' : 'pointer',
+                  opacity: !token.trim() || connecting ? 0.6 : 1,
+                  fontFamily: 'var(--font-geist-sans)',
+                }}
+              >
+                {connecting ? 'Connecting...' : 'Connect'}
+              </button>
+            </div>
+
+            {tokenError && (
+              <p style={{ color: 'var(--coral)', fontSize: 12, marginTop: 8, fontFamily: 'var(--font-geist-sans)' }}>
+                {tokenError}
+              </p>
+            )}
           </div>
-        ) : (
+        )}
+
+        {/* Connected state */}
+        {status?.connected && (
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 4, fontFamily: 'var(--font-geist-sans)' }}>
               Signed in as: @{status.vercel_user_name}
             </p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16, fontFamily: 'var(--font-geist-sans)' }}>
               {status.project_count ?? 0} projects imported
             </p>
-            <button onClick={syncProjects} disabled={syncing}
-              style={{ height: 36, padding: '0 16px',
+            <button
+              onClick={syncProjects}
+              disabled={syncing}
+              style={{
+                height: 36, padding: '0 16px',
                 background: syncDone ? 'var(--teal-glow)' : 'var(--surface-input)',
                 color: syncDone ? 'var(--teal)' : 'var(--text-secondary)',
-                border: '1px solid var(--border-default)', borderRadius: 8,
-                fontSize: 13, cursor: syncing ? 'not-allowed' : 'pointer' }}>
-              {syncing ? 'Syncing...' : syncDone ? 'Synced!' : 'Sync Now'}
+                border: '1px solid var(--border-default)',
+                borderRadius: 8, fontSize: 13,
+                cursor: syncing ? 'not-allowed' : 'pointer',
+                fontFamily: 'var(--font-geist-sans)',
+              }}
+            >
+              {syncing ? 'Syncing...' : syncDone ? '✓ Synced!' : 'Sync Now'}
             </button>
           </div>
         )}

@@ -62,7 +62,8 @@ def test_vercel_status_returns_not_connected(p9_client):
     assert r.json()["connected"] == False
 
 
-def test_vercel_auth_url_503_when_not_configured(p9_client):
+def test_vercel_connect_rejects_invalid_token(p9_client):
+    """POST /integrations/vercel/connect returns 400 for an invalid PAT."""
     email = f"test-p9-{uuid.uuid4().hex[:8]}@example.com"
     reg = p9_client.post(
         "/api/v1/auth/register",
@@ -73,11 +74,13 @@ def test_vercel_auth_url_503_when_not_configured(p9_client):
     token = reg.json().get("token")
     if not token:
         pytest.skip("No token returned")
-    r = p9_client.get(
-        "/api/v1/integrations/vercel/auth-url",
+    r = p9_client.post(
+        "/api/v1/integrations/vercel/connect",
+        json={"access_token": "invalid-token-that-will-not-work"},
         headers={"Authorization": f"Bearer {token}"}
     )
-    assert r.status_code in (200, 503)
+    # 400 (invalid token rejected by Vercel) or 422 (validation)
+    assert r.status_code in (400, 422)
 
 
 def test_health_still_passes(p9_client):

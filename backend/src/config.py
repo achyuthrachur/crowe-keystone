@@ -47,10 +47,6 @@ class Settings(BaseSettings):
     # Email (Resend)
     RESEND_API_KEY: str = ""
 
-    # Vercel OAuth
-    VERCEL_CLIENT_ID: str = ""
-    VERCEL_CLIENT_SECRET: str = ""
-
     # Registration mode: 'open' or 'invite_only'
     REGISTRATION_MODE: str = "open"
 
