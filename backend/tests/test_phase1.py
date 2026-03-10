@@ -14,6 +14,7 @@ from collections.abc import AsyncGenerator
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.pool import NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.config import settings
@@ -31,6 +32,7 @@ from src.routers.auth import hash_password
 test_engine = create_async_engine(
     _build_asyncpg_url(settings.DATABASE_URL),
     echo=False,
+    poolclass=NullPool,  # No connection pooling — each request gets a fresh connection
     connect_args={"ssl": _ssl_context},
 )
 TestingSessionLocal = async_sessionmaker(

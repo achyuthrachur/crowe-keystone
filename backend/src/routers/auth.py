@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import secrets
 import uuid
@@ -228,7 +227,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
             t = t_result.scalar_one_or_none()
             if t:
                 team_name_for_email = t.name
-        asyncio.create_task(send_welcome_email(user.email, user.name, team_name_for_email))
+        await send_welcome_email(user.email, user.name, team_name_for_email)
     except Exception:
         pass
 
@@ -327,7 +326,7 @@ async def invite_user(
         t_result = await db.execute(select(Team).where(Team.id == current_user.team_id))
         t = t_result.scalar_one_or_none()
         team_name = t.name if t else "your team"
-        asyncio.create_task(send_invitation_email(body.email, current_user.name, team_name, token, body.role))
+        await send_invitation_email(body.email, current_user.name, team_name, token, body.role)
         sent = True
     except Exception:
         pass

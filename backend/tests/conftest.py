@@ -11,14 +11,15 @@ def event_loop_policy():
 
 @pytest.fixture(scope="session")
 def shared_event_loop():
-    """Create a persistent event loop that lives for the entire test session.
+    """Return the current session event loop (managed by pytest-asyncio).
 
-    Use this loop (via loop.run_until_complete()) for async DB setup/teardown
-    in synchronous test fixtures instead of asyncio.run(), which closes the loop
-    and breaks subsequent asyncpg connections in TestClient requests.
+    With asyncio_default_fixture_loop_scope="session", pytest-asyncio already
+    creates and sets a session-scoped event loop before any fixtures run.
+    We yield that loop rather than creating a second one — if we created a new
+    loop and replaced the current one, async session fixtures (like create_tables
+    in test_phase1.py) would have already bound engine connections to the original
+    loop, causing 'Future attached to a different loop' errors in TestClient tests.
     """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = asyncio.get_event_loop()
     yield loop
-    loop.close()
-    asyncio.set_event_loop(None)
+    # Do NOT close — pytest-asyncio owns this loop's lifecycle.
