@@ -5,16 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-03-07)
 
 **Core value:** A team using Keystone never re-litigates past decisions, misses a conflict, or loses track of where something stands.
-**Current focus:** Phase 6 — Agent Integration (frontend wiring)
+**Current focus:** Phase 2 polish — Platform features (light mode, real auth, Vercel integration)
 
 ## Current Phase
 
-**Phase 7: Integrations + Memory + Settings**
+**Phase 2 Platform: Light Mode + Real Auth + Vercel Integration + Install Page**
 
-Status: PENDING
-Started: —
+Status: COMPLETE
+Started: 2026-03-10
+Completed: 2026-03-10
 
-Phase 2 goal: Full stage graph. Stage advance creates approvals. Approvals visible in inbox. SSE events fire and update UI in real time. Push notifications buzz phone.
+Last session: Completed phase2-plan2 — light/dark/system theme, real POST /auth/register, Vercel OAuth, /install PWA page, typed push helpers
+Stopped at: Completed phase2-plan2-PLAN.md
 
 ## Phase History
 
@@ -28,6 +30,7 @@ Phase 2 goal: Full stage graph. Stage advance creates approvals. Approvals visib
 | Phase 6: Agent Integration | ✓ Complete | 2026-03-07 |
 | Phase 7: Integrations + Memory + Settings | ✓ Complete | 2026-03-07 |
 | Phase 8: Polish + Performance + Production | ✓ Complete | 2026-03-08 |
+| Phase 2 Platform: Light Mode + Real Auth + Vercel | ✓ Complete | 2026-03-10 |
 
 ## Phase 5 Completion Notes (2026-03-07)
 
