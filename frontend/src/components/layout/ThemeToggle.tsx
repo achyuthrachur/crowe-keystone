@@ -9,10 +9,10 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const isDark = resolved === 'dark';
 
   return (
-    <motion.button
+    <button
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      whileTap={shouldReduce ? undefined : { scale: 0.88 }}
+      data-testid="theme-toggle"
       style={{
         width: compact ? 32 : 36,
         height: compact ? 32 : 36,
@@ -26,7 +26,11 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
         justifyContent: 'center',
         fontSize: compact ? 14 : 16,
         flexShrink: 0,
+        transition: 'transform 75ms ease',
       }}
+      onMouseDown={(e) => { if (!shouldReduce) (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.88)'; }}
+      onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = ''; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = ''; }}
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
@@ -40,6 +44,6 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
           {isDark ? '☀️' : '🌙'}
         </motion.span>
       </AnimatePresence>
-    </motion.button>
+    </button>
   );
 }

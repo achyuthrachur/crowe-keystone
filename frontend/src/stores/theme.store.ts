@@ -37,10 +37,21 @@ export const useThemeStore = create<ThemeStore>()(
         set({ preference, resolved });
       },
       initTheme: () => {
-        const { preference } = get();
+        // Read directly from localStorage (same source as FOUC script) so this
+        // is consistent regardless of whether Zustand has rehydrated yet.
+        let preference: ThemePreference = 'dark';
+        if (typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('keystone-theme');
+            if (raw) {
+              const p = (JSON.parse(raw)?.state as { preference?: string })?.preference;
+              if (p === 'dark' || p === 'light' || p === 'system') preference = p;
+            }
+          } catch { /* ignore */ }
+        }
         const resolved = resolveTheme(preference);
         applyTheme(resolved);
-        set({ resolved });
+        set({ preference, resolved });
         if (preference === 'system' && typeof window !== 'undefined') {
           window.matchMedia('(prefers-color-scheme: dark)')
             .addEventListener('change', (e) => {
