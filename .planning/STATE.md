@@ -58,8 +58,7 @@ Phase 3 completion notes:
 - asyncpg SSL: ssl_context connect_arg (not sslmode in URL)
 - Alembic sync: channel_binding=disable in DATABASE_URL_SYNC
 - gh CLI: /c/Users/RachurA/AppData/Local/gh-cli/bin/gh (authenticated)
-- Fly CLI: /c/Users/RachurA/.fly/bin/flyctl (v0.4.19) — backend deploys to Fly.io (NOT Railway)
-- Backend deploy: fly.toml in backend/ → app=crowe-keystone-api, region=ord, 512mb, SSE-safe (auto_stop=false)
+- Backend: Koyeb (https://app.koyeb.com) — deploys from GitHub main branch, backend/ directory, Dockerfile
 - Frontend deploy: Vercel — https://crowe-keystone.vercel.app (live)
 - Frontend dev port: 3002 (3000/3001 occupied)
 - Phase 2 migration: 002_phase2 (head) — approvals + conflicts tables live
