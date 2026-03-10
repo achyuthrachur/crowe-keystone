@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import useSWR from 'swr';
 import { pageVariants } from '@/lib/motion';
-import { MOCK_PROJECTS } from '@/lib/api';
+import { getProjects } from '@/lib/api';
 import { ProjectList } from '@/components/projects/ProjectList';
 import { StageFilterBar } from '@/components/projects/StageFilterBar';
 import { SparkInput } from '@/components/projects/SparkInput';
@@ -11,7 +12,103 @@ import { MobileProjectList } from '@/components/projects-mobile/MobileProjectLis
 import { MobileStageFilter } from '@/components/projects-mobile/MobileStageFilter';
 import { useViewportStore } from '@/stores/viewport.store';
 import type { Stage } from '@/lib/stage-colors';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
+
+function LoadingSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {[1, 2, 3].map((i) => (
+        <div
+          key={i}
+          style={{
+            height: 96,
+            borderRadius: 12,
+            background: 'var(--surface-secondary)',
+            animation: 'pulse 1.5s ease-in-out infinite',
+            opacity: 0.6,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ onNew }: { onNew: () => void }) {
+  return (
+    <div
+      style={{
+        textAlign: 'center',
+        padding: '64px 24px',
+        color: 'var(--text-muted)',
+        fontFamily: 'var(--font-geist-sans)',
+      }}
+    >
+      <div style={{ fontSize: 40, marginBottom: 16 }}>✦</div>
+      <p style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+        No projects yet
+      </p>
+      <p style={{ fontSize: 14, marginBottom: 24 }}>
+        Connect Vercel or create your first project
+      </p>
+      <button
+        onClick={onNew}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          height: 36,
+          padding: '0 16px',
+          borderRadius: 8,
+          border: 'none',
+          background: 'var(--amber-core)',
+          color: 'var(--text-inverse)',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        <Plus size={14} />
+        New Spark
+      </button>
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      style={{
+        textAlign: 'center',
+        padding: '48px 24px',
+        color: 'var(--text-muted)',
+        fontFamily: 'var(--font-geist-sans)',
+      }}
+    >
+      <p style={{ fontSize: 14, color: 'var(--coral)', marginBottom: 16 }}>
+        Failed to load projects
+      </p>
+      <button
+        onClick={onRetry}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          height: 32,
+          padding: '0 14px',
+          borderRadius: 8,
+          border: '1px solid var(--border)',
+          background: 'none',
+          color: 'var(--text-secondary)',
+          fontSize: 13,
+          cursor: 'pointer',
+        }}
+      >
+        <RefreshCw size={13} />
+        Retry
+      </button>
+    </div>
+  );
+}
 
 export default function ProjectsPage() {
   const [activeStage, setActiveStage] = useState<Stage | 'all'>('all');
@@ -20,9 +117,15 @@ export default function ProjectsPage() {
 
   const isMobile = mode === 'mobile' || isMobileDevice;
 
+  const { data: allProjects = [], isLoading, error, mutate } = useSWR(
+    '/api/projects',
+    () => getProjects(),
+    { revalidateOnFocus: true }
+  );
+
   const filteredProjects = activeStage === 'all'
-    ? MOCK_PROJECTS
-    : MOCK_PROJECTS.filter((p) => p.stage === activeStage);
+    ? allProjects
+    : allProjects.filter((p) => p.stage === activeStage);
 
   const openConflicts = filteredProjects.filter((p) => p.has_conflicts);
 
@@ -37,7 +140,7 @@ export default function ProjectsPage() {
         {/* Mobile stage filter */}
         <div style={{ marginBottom: 12 }}>
           <MobileStageFilter
-            projects={MOCK_PROJECTS}
+            projects={allProjects}
             activeStage={activeStage}
             onStageChange={setActiveStage}
           />
@@ -77,7 +180,14 @@ export default function ProjectsPage() {
           </div>
         )}
 
-        <MobileProjectList projects={filteredProjects} />
+        {isLoading && <LoadingSkeleton />}
+        {error && <ErrorState onRetry={() => mutate()} />}
+        {!isLoading && !error && allProjects.length === 0 && (
+          <EmptyState onNew={() => setSparkOpen(true)} />
+        )}
+        {!isLoading && !error && allProjects.length > 0 && (
+          <MobileProjectList projects={filteredProjects} />
+        )}
         {sparkOpen && <SparkInput onClose={() => setSparkOpen(false)} />}
       </motion.div>
     );
@@ -136,7 +246,7 @@ export default function ProjectsPage() {
       {/* Stage filter */}
       <div style={{ marginBottom: 20 }}>
         <StageFilterBar
-          projects={MOCK_PROJECTS}
+          projects={allProjects}
           activeStage={activeStage}
           onStageChange={setActiveStage}
         />
@@ -188,8 +298,15 @@ export default function ProjectsPage() {
         </motion.div>
       )}
 
-      {/* Projects grid */}
-      <ProjectList projects={filteredProjects} />
+      {/* Content */}
+      {isLoading && <LoadingSkeleton />}
+      {error && <ErrorState onRetry={() => mutate()} />}
+      {!isLoading && !error && allProjects.length === 0 && (
+        <EmptyState onNew={() => setSparkOpen(true)} />
+      )}
+      {!isLoading && !error && allProjects.length > 0 && (
+        <ProjectList projects={filteredProjects} />
+      )}
 
       {sparkOpen && <SparkInput onClose={() => setSparkOpen(false)} />}
     </motion.div>

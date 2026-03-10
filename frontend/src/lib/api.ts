@@ -198,13 +198,15 @@ export const MOCK_PROJECTS: Project[] = [
 // Phase 1: All functions return mock data. Real API wired in Phase 2.
 
 export async function getProjects(): Promise<Project[]> {
-  // Phase 1: return mock data
-  return Promise.resolve(MOCK_PROJECTS);
+  return apiRequest<Project[]>('/projects');
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  const project = MOCK_PROJECTS.find(p => p.id === id);
-  return Promise.resolve(project ?? null);
+  try {
+    return await apiRequest<Project>(`/projects/${id}`);
+  } catch {
+    return null;
+  }
 }
 
 export async function createProject(data: ProjectCreate): Promise<Project> {
