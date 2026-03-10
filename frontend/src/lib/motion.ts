@@ -118,3 +118,67 @@ export const tapVariants = {
 export const navTapVariants = {
   tap: { scale: 0.92, transition: { duration: DURATION.instant } },
 };
+
+// ─── PHASE 2 ADDITIONS ────────────────────────────────────────────
+
+export const themeIconVariants: Variants = {
+  initial: { opacity: 0, scale: 0.6, rotate: -20 },
+  animate: { opacity: 1, scale: 1, rotate: 0, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } },
+  exit:    { opacity: 0, scale: 0.6, rotate: 20, transition: { duration: 0.12 } },
+};
+
+export const authPageVariants: Variants = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: DURATION.slow, ease: EASING.out } },
+};
+
+export const successCheckVariants: Variants = {
+  initial: { opacity: 0, scale: 0, rotate: -45 },
+  animate: {
+    opacity: 1, scale: 1, rotate: 0,
+    transition: { type: 'spring', stiffness: 500, damping: 25, delay: 0.1 },
+  },
+};
+
+export const qrPulseVariants: Variants = {
+  animate: {
+    boxShadow: [
+      '0 0 0 0 rgba(245, 168, 0, 0)',
+      '0 0 0 16px rgba(245, 168, 0, 0.12)',
+      '0 0 0 0 rgba(245, 168, 0, 0)',
+    ],
+    transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 1 },
+  },
+};
+
+export const installStepVariants: Variants = {
+  initial: { opacity: 0, x: -12 },
+  animate: { opacity: 1, x: 0, transition: { duration: DURATION.normal, ease: EASING.out } },
+};
+
+export const connectedBadgeVariants: Variants = {
+  initial: { opacity: 0, scale: 0.7 },
+  animate: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 500, damping: 22 } },
+};
+
+export const importCardVariants: Variants = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: DURATION.normal, ease: EASING.out } },
+};
+
+export const emailChipVariants: Variants = {
+  initial: { opacity: 0, scale: 0.85, x: -8 },
+  animate: { opacity: 1, scale: 1, x: 0, transition: EASING.springGentle },
+  exit:    { opacity: 0, scale: 0.8, x: 8, transition: { duration: DURATION.fast } },
+};
+
+export const permissionPromptVariants: Variants = {
+  initial: { opacity: 0, y: 80 },
+  animate: { opacity: 1, y: 0, transition: { duration: DURATION.slow, ease: EASING.out } },
+  exit:    { opacity: 0, y: 80, transition: { duration: DURATION.normal, ease: EASING.in } },
+};
+
+export const avatarVariants: Variants = {
+  initial: { opacity: 0, scale: 0.8 },
+  animate: { opacity: 1, scale: 1, transition: EASING.spring },
+};

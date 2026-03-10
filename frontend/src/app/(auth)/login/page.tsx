@@ -1,153 +1,126 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { cardVariants, tapVariants } from '@/lib/motion';
+import { useRouter } from 'next/navigation';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
+import { authPageVariants } from '@/lib/motion';
+import { apiRequest } from '@/lib/api';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const shouldReduce = useReducedMotion();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    // Phase 1: stub login — Phase 2 wires real NextAuth
-    setTimeout(() => {
+    try {
+      const data = await apiRequest<{ token: string; user: { id: string } }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      if (typeof window !== 'undefined') localStorage.setItem('keystone_token', data.token);
+      router.push('/projects');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Sign in failed';
+      if (msg.includes('401') || msg.includes('Invalid')) {
+        setError('Invalid email or password. Please try again.');
+      } else {
+        setError(msg);
+      }
+    } finally {
       setLoading(false);
-      window.location.href = '/projects';
-    }, 800);
+    }
   };
 
   return (
-    <div
-      className="bg-dots"
-      style={{
-        minHeight: '100vh',
-        background: 'var(--surface-base)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: 360 }}>
-        {/* Logo + title */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          style={{ textAlign: 'center', marginBottom: 32 }}
-        >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              background: 'var(--amber-core)',
-              borderRadius: 12,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 24,
-              fontWeight: 800,
-              color: 'var(--text-inverse)',
-              fontFamily: 'var(--font-geist-sans)',
-              marginBottom: 16,
-            }}
-          >
-            K
+    <div style={{ minHeight: '100vh', display: 'flex' }}>
+      {/* Left panel — always dark */}
+      <div className="hidden-mobile" style={{
+        flex: '0 0 420px', background: '#011E41', padding: '48px 40px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      }}>
+        <div style={{ marginBottom: 40 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 32, height: 32, background: '#F5A800', borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, fontWeight: 800, color: '#011E41' }}>K</div>
+            <span style={{ fontSize: 22, fontWeight: 700, color: '#f0f4ff',
+              fontFamily: 'var(--font-display)' }}>Crowe Keystone</span>
           </div>
-          <h1
-            style={{
-              fontSize: 32,
-              fontWeight: 800,
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-display)',
-              margin: '0 0 8px',
-            }}
-          >
-            Keystone
-          </h1>
-          <p
-            style={{
-              fontSize: 14,
-              color: 'var(--text-secondary)',
-              fontFamily: 'var(--font-geist-sans)',
-              margin: 0,
-            }}
-          >
+          <p style={{ color: 'rgba(240,244,255,0.6)', fontSize: 14 }}>
             Where AI teams build together
           </p>
-        </motion.div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {['AI drafts PRDs and daily updates', 'Conflicts surface before they cost a sprint', 'Push notifications, no email required'].map((text) => (
+            <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ color: '#F5A800', fontSize: 16 }}>✓</span>
+              <span style={{ color: 'rgba(240,244,255,0.8)', fontSize: 14 }}>{text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
-        {/* Form card */}
+      {/* Right panel */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--surface-base)', padding: '32px 24px',
+      }}>
         <motion.div
-          variants={cardVariants}
-          initial="initial"
-          animate="animate"
-          transition={{ delay: 0.15 }}
-          style={{
-            background: 'var(--surface-elevated)',
-            borderRadius: 20,
-            padding: 24,
-            border: '1px solid var(--border-subtle)',
-            boxShadow: 'var(--shadow-md)',
-          }}
+          variants={shouldReduce ? undefined : authPageVariants}
+          initial={shouldReduce ? undefined : 'initial'}
+          animate={shouldReduce ? undefined : 'animate'}
+          style={{ width: '100%', maxWidth: 400 }}
         >
-          <form onSubmit={handleSubmit}>
-            {/* Email */}
-            <div style={{ marginBottom: 14 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: 'var(--text-secondary)',
-                  fontFamily: 'var(--font-geist-sans)',
-                  marginBottom: 6,
-                }}
-              >
+          {/* Logo (mobile only — shown on narrow viewport when left panel is hidden) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
+            <div style={{ width: 32, height: 32, background: 'var(--amber-core)', borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, fontWeight: 800, color: 'var(--indigo-dark)' }}>K</div>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)',
+              fontFamily: 'var(--font-display)' }}>Keystone</span>
+          </div>
+
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)',
+            marginBottom: 8, fontFamily: 'var(--font-display)' }}>
+            Sign in to Keystone
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
+            Enter your credentials to continue
+          </p>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
                 Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@crowe.com"
+                placeholder="you@company.com"
                 required
                 style={{
-                  width: '100%',
-                  height: 44,
-                  background: 'var(--surface-input)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 8,
-                  padding: '0 14px',
-                  fontSize: 14,
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-geist-sans)',
-                  outline: 'none',
-                  boxSizing: 'border-box',
+                  width: '100%', height: 40, background: 'var(--surface-input)',
+                  border: '1px solid var(--border-default)', borderRadius: 8,
+                  padding: '0 12px', color: 'var(--text-primary)', fontSize: 14,
+                  fontFamily: 'var(--font-geist-sans)', outline: 'none', boxSizing: 'border-box',
                   transition: 'border-color 150ms',
                 }}
                 onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = 'var(--border-amber)'; }}
-                onBlur={(e) => { (e.target as HTMLInputElement).style.borderColor = 'var(--border-subtle)'; }}
+                onBlur={(e) => { (e.target as HTMLInputElement).style.borderColor = 'var(--border-default)'; }}
               />
             </div>
 
-            {/* Password */}
-            <div style={{ marginBottom: 20 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: 'var(--text-secondary)',
-                  fontFamily: 'var(--font-geist-sans)',
-                  marginBottom: 6,
-                }}
-              >
+            <div>
+              <label style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
                 Password
               </label>
               <div style={{ position: 'relative' }}>
@@ -155,39 +128,25 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Your password"
                   required
                   style={{
-                    width: '100%',
-                    height: 44,
-                    background: 'var(--surface-input)',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 8,
-                    padding: '0 40px 0 14px',
-                    fontSize: 14,
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-geist-sans)',
-                    outline: 'none',
-                    boxSizing: 'border-box',
+                    width: '100%', height: 40, background: 'var(--surface-input)',
+                    border: '1px solid var(--border-default)', borderRadius: 8,
+                    padding: '0 40px 0 12px', color: 'var(--text-primary)', fontSize: 14,
+                    fontFamily: 'var(--font-geist-sans)', outline: 'none', boxSizing: 'border-box',
                     transition: 'border-color 150ms',
                   }}
                   onFocus={(e) => { (e.target as HTMLInputElement).style.borderColor = 'var(--border-amber)'; }}
-                  onBlur={(e) => { (e.target as HTMLInputElement).style.borderColor = 'var(--border-subtle)'; }}
+                  onBlur={(e) => { (e.target as HTMLInputElement).style.borderColor = 'var(--border-default)'; }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
-                    position: 'absolute',
-                    right: 12,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-tertiary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
+                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: 'var(--text-tertiary)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center',
                   }}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -195,46 +154,31 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Submit */}
-            <motion.button
-              variants={tapVariants}
-              whileTap="tap"
+            {error && (
+              <p style={{ color: 'var(--coral)', fontSize: 13, margin: 0 }}>{error}</p>
+            )}
+
+            <button
               type="submit"
               disabled={loading}
               style={{
-                width: '100%',
-                height: 44,
-                borderRadius: 8,
-                border: 'none',
-                background: loading ? 'var(--surface-input)' : 'var(--amber-core)',
-                color: loading ? 'var(--text-tertiary)' : 'var(--text-inverse)',
-                fontSize: 14,
-                fontWeight: 600,
+                height: 44, background: 'var(--amber-core)', color: 'var(--indigo-dark)',
+                border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700,
+                cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
                 fontFamily: 'var(--font-geist-sans)',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'background 150ms',
               }}
             >
-              {loading ? 'Signing in...' : 'Sign in →'}
-            </motion.button>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
           </form>
-        </motion.div>
 
-        {/* Footer */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          style={{
-            textAlign: 'center',
-            marginTop: 24,
-            fontSize: 13,
-            color: 'var(--text-tertiary)',
-            fontFamily: 'var(--font-geist-sans)',
-          }}
-        >
-          {"Don't have a team? Contact Achyuth to get started."}
-        </motion.p>
+          <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-tertiary)' }}>
+            {"Don't have an account? "}
+            <a href="/auth/register" style={{ color: 'var(--amber-core)', textDecoration: 'none' }}>
+              Create account
+            </a>
+          </p>
+        </motion.div>
       </div>
     </div>
   );

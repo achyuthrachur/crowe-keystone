@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import Script from 'next/script';
+import { ThemeInitializer } from '@/components/layout/ThemeInitializer';
 import './globals.css';
 
 // Plus Jakarta Sans is loaded via CSS variable fallback when Google Fonts
@@ -41,8 +42,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="Keystone" />
         <link rel="apple-touch-icon" href="/keystone-192.png" />
         <link rel="icon" href="/keystone-icon.svg" type="image/svg+xml" />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var s=JSON.parse(localStorage.getItem('keystone-theme')||'{}');var p=(s.state||{}).preference||'dark';var r=p==='system'?(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'):p;document.documentElement.setAttribute('data-theme',r);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();` }} />
       </head>
       <body className="font-sans antialiased">
+        <ThemeInitializer />
         {children}
         <Script
           id="sw-register"

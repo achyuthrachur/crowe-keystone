@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { ViewportToggle } from './ViewportToggle';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { ThemeToggle } from './ThemeToggle';
 import { useNotificationStore } from '@/stores/notifications.store';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
@@ -158,6 +159,7 @@ export function TopBar({ onMenuToggle, sidebarOpen }: TopBarProps) {
           </AnimatePresence>
         )}
         {!isNarrow && <ViewportToggle />}
+        <ThemeToggle compact />
         <NotificationBell />
 
         {/* User avatar */}

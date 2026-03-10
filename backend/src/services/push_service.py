@@ -229,6 +229,101 @@ async def notify_conflict_detected(
         )
 
 
+async def send_push_to_user(user_id, payload: dict, db: AsyncSession) -> None:
+    """Typed helper: send a push payload to all active subscriptions for a user."""
+    await _notify_user(db, user_id, payload)
+
+
+async def push_approval_request(
+    assignee_id: str,
+    project_name: str,
+    target_stage: str,
+    approval_id: str,
+    db: AsyncSession,
+) -> None:
+    """Send a push notification to an assignee when they need to approve a stage transition."""
+    try:
+        payload = {
+            "type": "approval.requested",
+            "title": "Approval Requested",
+            "body": f"Your approval needed: {project_name} → {target_stage}",
+            "data": {"approval_id": approval_id, "url": "/inbox"},
+            "icon": "/keystone-192.png",
+            "badge": "/keystone-96.png",
+        }
+        await _notify_user(db, assignee_id, payload)
+        logger.info("push_approval_request sent: user=%s approval=%s", assignee_id, approval_id)
+    except Exception as exc:
+        logger.error("push_approval_request error: user=%s error=%s", assignee_id, exc)
+
+
+async def push_conflict_detected(
+    team_id: str,
+    project_a_name: str,
+    project_b_name: str,
+    conflict_id: str,
+    db: AsyncSession,
+) -> None:
+    """Send conflict push to all team leads when a blocking conflict is detected."""
+    try:
+        leads = await get_team_leads(db, team_id)
+        payload = {
+            "type": "conflict.detected",
+            "title": "Blocking Conflict Detected",
+            "body": f"{project_a_name} vs {project_b_name} — review needed",
+            "data": {"conflict_id": conflict_id, "url": "/inbox"},
+            "icon": "/keystone-192.png",
+            "badge": "/keystone-96.png",
+        }
+        for lead in leads:
+            await _notify_user(db, lead.id, payload)
+        logger.info("push_conflict_detected sent: team=%s conflict=%s leads=%d", team_id, conflict_id, len(leads))
+    except Exception as exc:
+        logger.error("push_conflict_detected error: team=%s error=%s", team_id, exc)
+
+
+async def push_daily_brief(user_id: str, active_count: int, approval_count: int, db: AsyncSession) -> None:
+    """Send a daily brief push notification to a user."""
+    try:
+        approvals_text = f" · {approval_count} approvals pending" if approval_count > 0 else ""
+        payload = {
+            "type": "daily.brief",
+            "title": "Your Daily Brief is Ready",
+            "body": f"{active_count} active projects{approvals_text}",
+            "data": {"url": "/daily"},
+            "icon": "/keystone-192.png",
+            "badge": "/keystone-96.png",
+        }
+        await _notify_user(db, user_id, payload)
+        logger.info("push_daily_brief sent: user=%s", user_id)
+    except Exception as exc:
+        logger.error("push_daily_brief error: user=%s error=%s", user_id, exc)
+
+
+async def push_agent_checkpoint(
+    user_id: str,
+    project_name: str,
+    agent_type: str,
+    project_id: str,
+    run_id: str,
+    db: AsyncSession,
+) -> None:
+    """Send a push notification when an agent pauses for a human checkpoint."""
+    try:
+        payload = {
+            "type": "agent.checkpoint",
+            "title": "Agent Needs Your Input",
+            "body": f"{project_name}: {agent_type} is waiting for your response",
+            "data": {"run_id": run_id, "project_id": project_id, "url": "/inbox"},
+            "icon": "/keystone-192.png",
+            "badge": "/keystone-96.png",
+        }
+        await _notify_user(db, user_id, payload)
+        logger.info("push_agent_checkpoint sent: user=%s run=%s", user_id, run_id)
+    except Exception as exc:
+        logger.error("push_agent_checkpoint error: user=%s error=%s", user_id, exc)
+
+
 async def notify_agent_checkpoint(
     db: AsyncSession,
     user_id,

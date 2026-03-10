@@ -1,10 +1,11 @@
 'use client';
 
-import { Layers, GitBranch, Inbox, Sun } from 'lucide-react';
+import { Layers, GitBranch, Inbox, Sun, Download } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { navTapVariants, tapVariants } from '@/lib/motion';
 import { useNotificationStore } from '@/stores/notifications.store';
+import { useState, useEffect } from 'react';
 
 interface TabItem {
   href: string;
@@ -13,7 +14,7 @@ interface TabItem {
   showBadge?: boolean;
 }
 
-const tabs: TabItem[] = [
+const BASE_TABS: TabItem[] = [
   { href: '/projects', label: 'Projects', icon: Layers },
   { href: '/graph',    label: 'Graph',    icon: GitBranch },
   { href: '/inbox',    label: 'Inbox',    icon: Inbox, showBadge: true },
@@ -24,6 +25,17 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const pendingCount = useNotificationStore((s) => s.pendingCount);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(display-mode: standalone)');
+    setIsInstalled(mq.matches || (window.navigator as { standalone?: boolean }).standalone === true);
+  }, []);
+
+  const tabs: TabItem[] = [
+    ...BASE_TABS,
+    ...(!isInstalled ? [{ href: '/install', label: 'Install', icon: Download }] : []),
+  ];
 
   return (
     <nav

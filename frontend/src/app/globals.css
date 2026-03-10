@@ -153,3 +153,119 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LIGHT THEME OVERRIDES
+   Applied by: document.documentElement.setAttribute('data-theme', 'light')
+   ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  --surface-base:       #f8f9fc;
+  --surface-elevated:   #ffffff;
+  --surface-overlay:    #ffffff;
+  --surface-input:      #f0f2f8;
+  --surface-hover:      #e8ebf4;
+  --surface-selected:   #dde2f0;
+
+  --indigo-dark:        #011E41;
+  --indigo-core:        #002E62;
+  --indigo-bright:      #003F9F;
+  --indigo-glow:        rgba(0, 63, 159, 0.08);
+
+  --amber-core:         #F5A800;
+  --amber-dark:         #D7761D;
+  --amber-bright:       #FFD231;
+  --amber-glow:         rgba(245, 168, 0, 0.10);
+  --amber-glow-strong:  rgba(245, 168, 0, 0.20);
+
+  --teal:               #05AB8C;
+  --teal-glow:          rgba(5, 171, 140, 0.10);
+  --violet:             #B14FC5;
+  --violet-glow:        rgba(177, 79, 197, 0.10);
+  --blue:               #0075C9;
+  --blue-glow:          rgba(0, 117, 201, 0.10);
+  --coral:              #E5376B;
+  --coral-glow:         rgba(229, 55, 107, 0.10);
+  --orange:             #F97316;
+  --orange-glow:        rgba(249, 115, 22, 0.10);
+
+  --text-primary:       #2d3142;
+  --text-secondary:     #545968;
+  --text-tertiary:      #8b90a0;
+  --text-inverse:       #f0f4ff;
+
+  --border-subtle:      rgba(1, 30, 65, 0.06);
+  --border-default:     rgba(1, 30, 65, 0.10);
+  --border-strong:      rgba(1, 30, 65, 0.18);
+  --border-amber:       rgba(245, 168, 0, 0.30);
+  --border-teal:        rgba(5, 171, 140, 0.30);
+  --border-coral:       rgba(229, 55, 107, 0.30);
+  --border-violet:      rgba(177, 79, 197, 0.30);
+  --border-blue:        rgba(0, 117, 201, 0.30);
+  --border-orange:      rgba(249, 115, 22, 0.30);
+
+  --shadow-sm:          0 1px 3px rgba(1,30,65,0.06), 0 1px 2px rgba(1,30,65,0.04);
+  --shadow-md:          0 4px 12px rgba(1,30,65,0.08), 0 2px 4px rgba(1,30,65,0.04);
+  --shadow-lg:          0 8px 24px rgba(1,30,65,0.10), 0 4px 8px rgba(1,30,65,0.06);
+  --shadow-amber:       0 0 20px rgba(245,168,0,0.15), 0 0 40px rgba(245,168,0,0.06);
+  --shadow-teal:        0 0 20px rgba(5,171,140,0.15), 0 0 40px rgba(5,171,140,0.06);
+  --shadow-coral:       0 0 20px rgba(229,55,107,0.15), 0 0 40px rgba(229,55,107,0.06);
+}
+
+/* Theme transition */
+body {
+  background-color: var(--surface-base);
+  color: var(--text-primary);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+*, *::before, *::after {
+  transition: background-color 200ms ease,
+              border-color 200ms ease,
+              box-shadow 200ms ease;
+}
+
+.motion-element, [data-framer-motion] {
+  transition: none !important;
+}
+
+/* React Flow light mode overrides */
+[data-theme="light"] .react-flow {
+  background-color: var(--surface-base) !important;
+}
+[data-theme="light"] .react-flow__background {
+  background-color: var(--surface-base) !important;
+}
+[data-theme="light"] .react-flow__minimap {
+  background-color: var(--surface-elevated) !important;
+}
+[data-theme="light"] .react-flow__minimap-mask {
+  fill: rgba(1, 30, 65, 0.15) !important;
+}
+[data-theme="light"] .react-flow__controls {
+  background-color: var(--surface-elevated) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+[data-theme="light"] .react-flow__controls button {
+  background-color: var(--surface-elevated) !important;
+  color: var(--text-secondary) !important;
+  border-bottom-color: var(--border-subtle) !important;
+}
+[data-theme="light"] .react-flow__controls button:hover {
+  background-color: var(--surface-hover) !important;
+}
+[data-theme="light"] .react-flow__edge-path {
+  stroke: var(--border-default) !important;
+}
+[data-theme="light"] .bg-dots {
+  background-image: radial-gradient(
+    circle, rgba(1, 30, 65, 0.08) 1px, transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* Mobile hidden utility */
+@media (max-width: 768px) {
+  .hidden-mobile { display: none !important; }
+}

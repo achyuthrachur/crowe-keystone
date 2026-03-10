@@ -11,6 +11,7 @@ from src.models.conflict import Conflict  # noqa: F401
 from src.models.prd import Prd  # noqa: F401
 from src.models.decision import Decision  # noqa: F401
 from src.models.retrospective import Retrospective  # noqa: F401
+from src.models.invitation import Invitation  # noqa: F401
 
 __all__ = [
     "Team",
@@ -23,4 +24,5 @@ __all__ = [
     "Prd",
     "Decision",
     "Retrospective",
+    "Invitation",
 ]

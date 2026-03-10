@@ -5,6 +5,8 @@ import useSWR from 'swr';
 import { motion, useReducedMotion } from 'framer-motion';
 import { pageVariants } from '@/lib/motion';
 import { apiRequest } from '@/lib/api';
+import { useThemeStore } from '@/stores/theme.store';
+import type { ThemePreference } from '@/stores/theme.store';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
 
@@ -30,6 +32,7 @@ export default function TeamSettingsPage() {
   const [inviteRole, setInviteRole] = useState('member');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [isInviting, setIsInviting] = useState(false);
+  const { preference, setTheme } = useThemeStore();
 
   const { data, isLoading, mutate } = useSWR(`${BACKEND_URL}/api/v1/team`, fetchTeam, { revalidateOnFocus: false });
   const members: Array<{ id: string; name: string; email: string; role: string }> = data?.members ?? [];
@@ -73,6 +76,35 @@ export default function TeamSettingsPage() {
       <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', margin: '0 0 24px' }}>
         Team Settings
       </h1>
+
+      {/* Appearance section */}
+      <section style={{ marginBottom: 24, background: 'var(--surface-elevated)', borderRadius: 10, border: '1px solid var(--border-subtle)', padding: 16 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12, marginTop: 0, fontFamily: 'var(--font-geist-sans)' }}>
+          Appearance
+        </h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['dark', 'light', 'system'] as ThemePreference[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setTheme(p)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 8,
+                border: preference === p ? '2px solid var(--amber-core)' : '1px solid var(--border-default)',
+                background: preference === p ? 'var(--amber-glow)' : 'var(--surface-input)',
+                color: preference === p ? 'var(--amber-core)' : 'var(--text-secondary)',
+                fontSize: 13,
+                fontWeight: preference === p ? 600 : 400,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                fontFamily: 'var(--font-geist-sans)',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* Members list */}
       <div style={{ background: 'var(--surface-elevated)', borderRadius: 10, border: '1px solid var(--border-subtle)', marginBottom: 24, overflow: 'hidden' }}>

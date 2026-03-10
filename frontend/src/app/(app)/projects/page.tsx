@@ -13,6 +13,7 @@ import { MobileStageFilter } from '@/components/projects-mobile/MobileStageFilte
 import { useViewportStore } from '@/stores/viewport.store';
 import type { Stage } from '@/lib/stage-colors';
 import { Plus, RefreshCw } from 'lucide-react';
+import { OnboardingBanner } from '@/components/layout/OnboardingBanner';
 
 function LoadingSkeleton() {
   return (
@@ -242,6 +243,9 @@ export default function ProjectsPage() {
           ✦ New Spark
         </button>
       </div>
+
+      {/* Onboarding banner (first-time users only) */}
+      <OnboardingBanner />
 
       {/* Stage filter */}
       <div style={{ marginBottom: 20 }}>

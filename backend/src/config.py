@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     # GitHub webhook secret (optional — if set, validates X-Hub-Signature-256)
     GITHUB_WEBHOOK_SECRET: str = ""
 
+    # Email (Resend)
+    RESEND_API_KEY: str = ""
+
+    # Vercel OAuth
+    VERCEL_CLIENT_ID: str = ""
+    VERCEL_CLIENT_SECRET: str = ""
+
+    # Registration mode: 'open' or 'invite_only'
+    REGISTRATION_MODE: str = "open"
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def parse_allowed_origins(cls, v: str) -> str:

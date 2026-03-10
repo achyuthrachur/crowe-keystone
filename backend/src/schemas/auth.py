@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -22,8 +23,8 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
     name: str
-    avatar_url: str | None
-    team_id: uuid.UUID | None
+    avatar_url: Optional[str]
+    team_id: Optional[uuid.UUID]
     role: str
     timezone: str
     created_at: datetime
@@ -53,4 +54,28 @@ class InviteRequest(BaseModel):
 
 
 class InviteResponse(BaseModel):
-    invite_url: str
+    invitation_id: str
+    email: str
+    expires_at: str
+    sent: bool
+
+
+class RegisterRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: str
+    name: str
+    password: str = Field(min_length=8, max_length=128)
+    invite_token: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalise_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class InvitePreviewResponse(BaseModel):
+    email: str
+    role: str
+    team_name: str
+    invited_by_name: str

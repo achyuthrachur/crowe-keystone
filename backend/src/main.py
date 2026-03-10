@@ -28,6 +28,7 @@ from src.routers import retrospectives as retro_router
 from src.routers import decisions as decisions_router
 from src.routers import team as team_router
 from src.routers import webhooks as webhooks_router
+from src.routers import integrations as integrations_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -245,6 +246,7 @@ app.include_router(retro_router.router, prefix=API_PREFIX)
 app.include_router(decisions_router.router, prefix=API_PREFIX)
 app.include_router(team_router.router, prefix=API_PREFIX)
 app.include_router(webhooks_router.router, prefix=API_PREFIX)
+app.include_router(integrations_router.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

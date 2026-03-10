@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, GitBranch, Inbox, Brain, Sun, Plus } from 'lucide-react';
+import { Layers, GitBranch, Inbox, Brain, Sun, Plus, Smartphone } from 'lucide-react';
 import { useNotificationStore } from '@/stores/notifications.store';
 import { useState } from 'react';
 import { SparkInput } from '../projects/SparkInput';
@@ -170,6 +170,24 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         >
           <Plus size={14} />
           New Spark
+        </button>
+
+        {/* Install App link */}
+        <button
+          onClick={() => { router.push('/install'); onNavigate?.(); }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            height: 36, padding: '0 12px', borderRadius: 8, border: 'none',
+            cursor: 'pointer', background: 'transparent',
+            color: 'var(--text-tertiary)', fontSize: 13,
+            fontWeight: 400, fontFamily: 'var(--font-geist-sans)',
+            transition: 'all 150ms ease-out', marginTop: 8,
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface-hover)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+        >
+          <Smartphone size={14} color="var(--text-tertiary)" />
+          Install App
         </button>
 
         {/* Presence section */}

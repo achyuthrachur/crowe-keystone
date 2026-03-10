@@ -9,7 +9,7 @@ export default defineConfig({
   timeout: 60000,
   reporter: 'line',
   use: {
-    baseURL: 'http://localhost:3002',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3002',
     trace: 'on-first-retry',
     launchOptions: {
       executablePath: process.env.PLAYWRIGHT_CHROME_PATH,

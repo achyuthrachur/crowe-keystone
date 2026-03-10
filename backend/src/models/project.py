@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Text, TIMESTAMP, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -71,6 +72,12 @@ class Project(Base):
     metadata_: Mapped[dict] = mapped_column(
         "metadata", JSONB, nullable=False, server_default="{}", default=dict
     )
+
+    # Phase 2 Vercel integration fields
+    vercel_project_id:  Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    vercel_project_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    vercel_framework:   Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_synced_at:     Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
 
     archived: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false", default=False

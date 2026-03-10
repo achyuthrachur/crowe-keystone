@@ -42,6 +42,16 @@ export function ProjectCard({ project, onConflict }: ProjectCardProps) {
         transition: 'border-color 200ms ease-out',
       }}
     >
+      {/* Vercel badge (if project is imported from Vercel) */}
+      {(project as Project & { vercel_project_id?: string }).vercel_project_id && (
+        <span style={{
+          position: 'absolute', top: 8, right: 8, fontSize: 10,
+          fontFamily: 'var(--font-geist-mono)', color: 'var(--text-tertiary)',
+          background: 'var(--surface-input)', padding: '2px 6px',
+          borderRadius: 4, border: '1px solid var(--border-subtle)',
+        }}>Vercel</span>
+      )}
+
       {/* Top row: stage badge + conflict dot */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span

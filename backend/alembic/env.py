@@ -45,9 +45,16 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     import asyncio
+    import ssl
     from sqlalchemy.ext.asyncio import create_async_engine
+    from src.database import _build_asyncpg_url
 
-    url = config.get_main_option("sqlalchemy.url")
+    raw_url = config.get_main_option("sqlalchemy.url") or ""
+    url = _build_asyncpg_url(raw_url)
+
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
 
     def do_run_migrations(connection):
         context.configure(
@@ -59,7 +66,9 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
     async def run_async_migrations() -> None:
-        connectable = create_async_engine(url, poolclass=pool.NullPool)
+        connectable = create_async_engine(
+            url, poolclass=pool.NullPool, connect_args={"ssl": _ssl_ctx}
+        )
         async with connectable.connect() as connection:
             await connection.run_sync(do_run_migrations)
         await connectable.dispose()
