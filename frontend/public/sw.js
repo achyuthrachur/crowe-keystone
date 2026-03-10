@@ -31,12 +31,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navigation requests: let the browser handle redirects (auth, NextAuth, etc.)
+  // SW redirect mode is 'manual' for navigate requests, so intercepting causes
+  // "redirected response used for request whose redirect mode is not follow" errors.
+  if (request.mode === 'navigate') {
+    return;
+  }
+
   // Static assets: cache-first with network fallback + cache update
   event.respondWith(
     caches.open(CACHE_NAME).then(cache =>
       cache.match(request).then(cached => {
         const networkFetch = fetch(request).then(response => {
-          if (response.ok) {
+          // Only cache successful, non-redirected responses
+          if (response.ok && !response.redirected) {
             cache.put(request, response.clone());
           }
           return response;
