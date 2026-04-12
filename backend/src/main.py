@@ -19,16 +19,13 @@ from fastapi.responses import JSONResponse
 
 from src.config import settings
 from src.database import init_db
-from src.routers import approvals, auth, conflicts, health, projects, prds, push, stream
-from src.routers import graph as graph_router
+from src.routers import auth, health, push, stream
 from src.routers import agents as agents_router
-from src.routers import daily as daily_router
-from src.routers import memory as memory_router
-from src.routers import retrospectives as retro_router
-from src.routers import decisions as decisions_router
 from src.routers import team as team_router
-from src.routers import webhooks as webhooks_router
-from src.routers import integrations as integrations_router
+from src.routers import engagements as engagements_router
+from src.routers import upload as upload_router
+from src.routers import runs as runs_router
+from src.routers import output as output_router
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
@@ -38,109 +35,42 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# APScheduler — daily brief job (Phase 5)
-# ---------------------------------------------------------------------------
-
-def _start_scheduler() -> None:
-    """
-    Sets up the APScheduler daily brief job.
-    Runs daily_brief_generator for each active user at 7:00 AM UTC.
-    Full timezone-aware scheduling per user is wired in Phase 7.
-    """
-    try:
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-        scheduler = AsyncIOScheduler()
-
-        async def _run_daily_brief_for_all_users() -> None:
-            """Background job: generate daily brief for all active users."""
-            try:
-                from src.database import AsyncSessionLocal
-                from sqlalchemy import select
-                from src.models.user import User
-                from src.graph.keystone_graph import build_daily_brief_graph
-                import uuid as _uuid
-
-                async with AsyncSessionLocal() as db:
-                    result = await db.execute(select(User))
-                    users = result.scalars().all()
-
-                graph = build_daily_brief_graph()
-
-                for user in users:
-                    if user.team_id is None:
-                        continue
-                    try:
-                        initial_state = {
-                            "run_id": str(_uuid.uuid4()),
-                            "agent_type": "daily_brief_generator",
-                            "project_id": None,
-                            "team_id": str(user.team_id),
-                            "triggered_by": str(user.id),
-                            "user_id": str(user.id),
-                            "raw_input": "",
-                            "input_type": "data",
-                            "context": {},
-                            "brief": None,
-                            "prd_draft": None,
-                            "prd_version": 1,
-                            "hypotheses": [],
-                            "adversarial_findings": [],
-                            "assumption_audit": [],
-                            "stress_test_confidence": 0.0,
-                            "all_project_states": [],
-                            "detected_conflicts": [],
-                            "approval_type": None,
-                            "approval_chain": [],
-                            "approval_context_summary": "",
-                            "raw_build_notes": None,
-                            "structured_update": None,
-                            "brief_sections": None,
-                            "memory_entries": [],
-                            "similar_prior_projects": [],
-                            "human_checkpoint_needed": False,
-                            "checkpoint_question": None,
-                            "checkpoint_response": None,
-                            "quality_score": 0.0,
-                            "loop_count": 0,
-                            "errors": [],
-                            "status": "running",
-                        }
-                        await graph.ainvoke(initial_state)
-                        logger.info("Daily brief generated for user %s", user.id)
-                    except Exception as exc:
-                        logger.warning("Daily brief failed for user %s: %s", user.id, exc)
-            except Exception as exc:
-                logger.error("Daily brief scheduler job failed: %s", exc)
-
-        # Schedule at 7:00 AM UTC daily (Phase 7 will make this per-user timezone)
-        scheduler.add_job(
-            _run_daily_brief_for_all_users,
-            trigger="cron",
-            hour=7,
-            minute=0,
-            id="daily_brief_job",
-            replace_existing=True,
-        )
-        scheduler.start()
-        logger.info("APScheduler started — daily_brief_job scheduled at 07:00 UTC")
-        return scheduler
-    except ImportError:
-        logger.warning("APScheduler not installed — daily brief scheduling disabled")
-        return None
-
-
-# ---------------------------------------------------------------------------
 # Lifespan — replaces deprecated @app.on_event("startup")
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting Crowe Keystone API (env=%s)", settings.ENVIRONMENT)
     await init_db()
-    scheduler = _start_scheduler()
+
+    # ── Crash recovery — mark interrupted runs as failed on startup ───────────
+    from datetime import datetime, timezone
+    from sqlalchemy import select, update as sa_update
+    from src.database import AsyncSessionLocal
+    from src.models.keystone_run import KeystoneRun
+    from src.models.engagement import Engagement
+
+    _INTERRUPTED = ("running", "awaiting_review_1", "awaiting_review_2",
+                    "awaiting_review_3", "compiling")
+
+    async with AsyncSessionLocal() as _db:
+        _result = await _db.execute(
+            select(KeystoneRun).where(KeystoneRun.status.in_(_INTERRUPTED))
+        )
+        _runs = _result.scalars().all()
+        if _runs:
+            logger.warning("Startup: marking %d interrupted run(s) as failed.", len(_runs))
+            for _run in _runs:
+                _run.status = "failed"
+                _run.error = "Server restarted while run was in progress. Please re-run."
+                _run.completed_at = datetime.now(tz=timezone.utc)
+                await _db.execute(
+                    sa_update(Engagement)
+                    .where(Engagement.id == _run.engagement_id)
+                    .values(status="failed")
+                )
+            await _db.commit()
+
     yield
-    if scheduler is not None:
-        scheduler.shutdown(wait=False)
     logger.info("Crowe Keystone API shutting down.")
 
 
@@ -232,21 +162,14 @@ API_PREFIX = "/api/v1"
 
 app.include_router(health.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
-app.include_router(projects.router, prefix=API_PREFIX)
-app.include_router(prds.router, prefix=API_PREFIX)
-app.include_router(approvals.router, prefix=API_PREFIX)
-app.include_router(conflicts.router, prefix=API_PREFIX)
 app.include_router(push.router, prefix=API_PREFIX)
 app.include_router(stream.router, prefix=API_PREFIX)
-app.include_router(graph_router.router, prefix=API_PREFIX)
 app.include_router(agents_router.router, prefix=API_PREFIX)
-app.include_router(daily_router.router, prefix=API_PREFIX)
-app.include_router(memory_router.router, prefix=API_PREFIX)
-app.include_router(retro_router.router, prefix=API_PREFIX)
-app.include_router(decisions_router.router, prefix=API_PREFIX)
 app.include_router(team_router.router, prefix=API_PREFIX)
-app.include_router(webhooks_router.router, prefix=API_PREFIX)
-app.include_router(integrations_router.router, prefix=API_PREFIX)
+app.include_router(engagements_router.router, prefix=API_PREFIX)
+app.include_router(upload_router.router, prefix=API_PREFIX)
+app.include_router(runs_router.router, prefix=API_PREFIX)
+app.include_router(output_router.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

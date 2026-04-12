@@ -13,9 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import settings
 from src.database import get_db
 from src.models.user import User
-from src.models.invitation import Invitation
 from src.schemas.auth import (
-    InviteRequest, InviteResponse, InvitePreviewResponse,
     LoginRequest, LoginResponse, RegisterRequest, UserResponse,
 )
 
@@ -163,27 +161,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
     user_count = count_result.scalar() or 0
     is_first_user = user_count == 0
 
-    # If not first user and invite_only mode, require invite token
-    if not is_first_user and settings.REGISTRATION_MODE == 'invite_only' and not body.invite_token:
-        raise HTTPException(status_code=403, detail="Registration requires an invitation")
-
-    invitation = None
     role = 'admin' if is_first_user else 'builder'
     team_id = None
-
-    if body.invite_token:
-        inv_result = await db.execute(
-            select(Invitation).where(
-                Invitation.token == body.invite_token,
-                Invitation.accepted_at.is_(None),
-                Invitation.expires_at > datetime.now(timezone.utc),
-            )
-        )
-        invitation = inv_result.scalar_one_or_none()
-        if not invitation:
-            raise HTTPException(status_code=404, detail="This invitation link is invalid or has expired")
-        role = invitation.role
-        team_id = invitation.team_id
 
     # For first user: create a team
     if is_first_user:
@@ -211,10 +190,6 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
         email_verified=False,
     )
     db.add(user)
-
-    if invitation:
-        invitation.accepted_at = datetime.now(timezone.utc)
-
     await db.commit()
     await db.refresh(user)
 
@@ -235,105 +210,3 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
     return {"user": UserResponse.model_validate(user).model_dump(mode='json'), "token": token}
 
 
-@router.get(
-    "/invite/{token}",
-    response_model=InvitePreviewResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Preview an invitation by token",
-)
-async def get_invite_preview(token: str, db: AsyncSession = Depends(get_db)) -> InvitePreviewResponse:
-    from src.models.team import Team
-    result = await db.execute(
-        select(Invitation).where(
-            Invitation.token == token,
-            Invitation.accepted_at.is_(None),
-            Invitation.expires_at > datetime.now(timezone.utc),
-        )
-    )
-    invitation = result.scalar_one_or_none()
-    if not invitation:
-        raise HTTPException(status_code=404, detail="Invitation not found or expired")
-
-    # Get team name
-    team_result = await db.execute(select(Team).where(Team.id == invitation.team_id))
-    team = team_result.scalar_one_or_none()
-    team_name = team.name if team else "your team"
-
-    # Get inviter name
-    inviter_result = await db.execute(select(User).where(User.id == invitation.invited_by))
-    inviter = inviter_result.scalar_one_or_none()
-    inviter_name = inviter.name if inviter else "A teammate"
-
-    return InvitePreviewResponse(
-        email=invitation.email,
-        role=invitation.role,
-        team_name=team_name,
-        invited_by_name=inviter_name,
-    )
-
-
-@router.post(
-    "/invite",
-    response_model=InviteResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Invite a user to the team",
-)
-async def invite_user(
-    body: InviteRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    if current_user.role not in ("lead", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only leads and admins can invite team members",
-        )
-    if not current_user.team_id:
-        raise HTTPException(status_code=400, detail="You must belong to a team to send invitations")
-
-    # Check for existing pending invitation
-    existing_result = await db.execute(
-        select(Invitation).where(
-            Invitation.email == body.email,
-            Invitation.team_id == current_user.team_id,
-            Invitation.accepted_at.is_(None),
-            Invitation.expires_at > datetime.now(timezone.utc),
-        )
-    )
-    if existing_result.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="A pending invitation already exists for this email")
-
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-
-    invitation = Invitation(
-        team_id=current_user.team_id,
-        invited_by=current_user.id,
-        email=body.email,
-        role=body.role,
-        token=token,
-        expires_at=expires_at,
-    )
-    db.add(invitation)
-    await db.commit()
-    await db.refresh(invitation)
-
-    # Send email (fire and forget)
-    sent = False
-    try:
-        from src.services.email_service import send_invitation_email
-        from src.models.team import Team
-        t_result = await db.execute(select(Team).where(Team.id == current_user.team_id))
-        t = t_result.scalar_one_or_none()
-        team_name = t.name if t else "your team"
-        await send_invitation_email(body.email, current_user.name, team_name, token, body.role)
-        sent = True
-    except Exception:
-        pass
-
-    return {
-        "invitation_id": str(invitation.id),
-        "email": invitation.email,
-        "expires_at": invitation.expires_at.isoformat(),
-        "sent": sent,
-    }

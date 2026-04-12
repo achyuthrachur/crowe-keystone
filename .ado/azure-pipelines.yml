@@ -1,0 +1,34 @@
+# .ado/azure-pipelines.yml — skeleton only
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildBackend
+        steps:
+          - task: Docker@2
+            inputs:
+              command: build
+              Dockerfile: backend/Dockerfile
+              tags: $(Build.BuildId)
+      - job: BuildFrontend
+        steps:
+          - script: cd frontend && npm ci && npm run build
+            env:
+              NODE_TLS_REJECT_UNAUTHORIZED: "0"
+
+  - stage: Deploy
+    dependsOn: Build
+    jobs:
+      - job: DeployToAzure
+        steps:
+          # TODO: Azure Container Apps deploy step
+          # TODO: Run Alembic migrations against Azure PostgreSQL before container start
+          # TODO: Azure Static Web Apps deploy step
+          - script: echo "Wire Azure deployment steps after resources are provisioned"

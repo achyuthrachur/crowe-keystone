@@ -1,6 +1,6 @@
 # backend/src/state.py
-# THIS FILE IS SACRED.
-# Run keystone-schema-validator before ANY change to this file.
+# REPLACE ENTIRELY in Phase B.
+# This file defines the LangGraph state for the Keystone transcript pipeline.
 # Nodes return a DICT with only the fields they modify — not the full state.
 # Annotated[list, operator.add] fields are automatically merged across parallel branches.
 
@@ -8,119 +8,96 @@ import operator
 from typing import Annotated, Optional, TypedDict
 
 
-def _merge_dict(a: Optional[dict], b: Optional[dict]) -> Optional[dict]:
-    """Merge two dicts for prd_draft concurrent parallel section updates."""
-    if a is None:
-        return b
-    if b is None:
-        return a
-    return {**a, **b}
+# ---------------------------------------------------------------------------
+# Support TypedDicts — used as field types within KeystoneState
+# ---------------------------------------------------------------------------
+
+class RemovedSegment(TypedDict):
+    id: str                    # uuid4 string, assigned by noise_filter
+    text: str                  # the removed text block
+    reason: str                # off_topic | personal_chatter | other_workstream | admin
 
 
-class HypothesisResult(TypedDict):
-    id: str
-    statement: str
-    supporting_evidence: list[str]
-    contradicting_evidence: list[str]
-    confidence_score: float           # 0.0 to 1.0
-    killed_by_red_team: bool
+class AcronymEntry(TypedDict):
+    term: str                  # e.g. "P&C"
+    expansion: str             # e.g. "Property & Casualty"
+    confidence: float          # 0.0–1.0, from research_agent
+    source: str                # web_search | inferred | user_edited
 
 
-class AssumptionAudit(TypedDict):
-    assumption: str
-    fragility_score: float            # 0.0 = bedrock, 1.0 = house of cards
-    what_breaks_if_wrong: str
-    evidence_available: bool
+class OutlineItem(TypedDict):
+    id: str                    # uuid4 string, assigned by content_extractor
+    text: str                  # the finding or recommendation text
+    source_quote: str          # verbatim snippet from disambiguated_transcript
+    slide_type_hint: Optional[str]  # user-added hint, e.g. "bullet list", "stat callout"
 
 
-class ConflictResult(TypedDict):
-    id: str
-    type: str
-    severity: str
-    project_a_id: str
-    project_b_id: str
-    specific_conflict: str            # exactly 2 sentences
-    resolution_options: list[dict]    # [{option, implication}]
+class ContentOutline(TypedDict):
+    key_themes: list[OutlineItem]
+    pain_points: list[OutlineItem]
+    stated_priorities: list[OutlineItem]
+    open_questions: list[OutlineItem]
+    potential_recommendations: list[OutlineItem]
+    suggested_next_steps: list[OutlineItem]
 
 
-class BriefContent(TypedDict):
-    problem_statement: str
-    proposed_scope: str
-    ai_recommendation: str            # build | configure | optimize | no_action
-    effort_estimate: str              # S | M | L | XL
-    stack_recommendation: list[str]
-    overlaps_with: list[str]          # project IDs
-    open_questions: list[str]
-    confidence_score: float
-
-
-class PRDContent(TypedDict):
-    problem_statement: str
-    user_stories: list[dict]
-    functional_requirements: list[dict]
-    non_functional_requirements: list[dict]
-    out_of_scope: list[str]
-    stack: list[str]
-    component_inventory: list[dict]
-    data_layer_spec: dict
-    api_contracts: list[dict]
-    success_criteria: list[str]
-    open_questions: list[dict]        # {id, question, blocking, owner}
-    claude_code_prompt: str
-
+# ---------------------------------------------------------------------------
+# KeystoneState — the single state object passed through the LangGraph graph
+# ---------------------------------------------------------------------------
 
 class KeystoneState(TypedDict):
-    # ── Identity
-    run_id: str
-    agent_type: str
-    project_id: Optional[str]
+    # ── Identity ─────────────────────────────────────────────────────────────
+    run_id: str                # matches KeystoneRun.id
+    engagement_id: str         # matches Engagement.id
     team_id: str
-    triggered_by: str                 # user_id
+    triggered_by: str          # user_id
 
-    # ── Input
-    raw_input: str
-    input_type: str                   # spark | notes | prd | data
-    context: dict                     # additional context from caller
+    # ── Engagement metadata (copied in at run start, not re-fetched by nodes)
+    client_name: str
+    client_industry: str
 
-    # ── Brief
-    brief: Optional[BriefContent]
+    # ── Uploaded document storage keys (set by runs router before graph starts)
+    transcript_storage_key: str           # required
+    preread_storage_key: Optional[str]    # optional
+    agenda_storage_key: Optional[str]     # optional
 
-    # ── PRD
-    prd_draft: Annotated[Optional[PRDContent], _merge_dict]
-    prd_version: int
+    # ── Node 1 output — transcript_ingester ──────────────────────────────────
+    clean_transcript: str                 # normalized plain text
 
-    # ── Stress test (parallel branches — Annotated[list, operator.add] merges results)
-    hypotheses: Annotated[list[HypothesisResult], operator.add]
-    adversarial_findings: list[str]
-    assumption_audit: Annotated[list[AssumptionAudit], operator.add]
-    stress_test_confidence: float
+    # ── Node 2 output — noise_filter ─────────────────────────────────────────
+    filtered_transcript: str
+    removed_segments: list[RemovedSegment]
 
-    # ── Conflict detection
-    all_project_states: list[dict]
-    detected_conflicts: Annotated[list[ConflictResult], operator.add]
+    # ── HITL Gate 1 — set by runs router when user submits review ────────────
+    gate1_approved: bool
+    gate1_restored_segments: list[str]    # list of RemovedSegment.id strings
 
-    # ── Approvals
-    approval_type: Optional[str]
-    approval_chain: list[str]
-    approval_context_summary: str
+    # ── Node 3 output — research_agent ───────────────────────────────────────
+    client_context_profile: dict          # free-form JSON, see Phase C for exact shape
+    acronym_glossary: list[AcronymEntry]
 
-    # ── Build updates
-    raw_build_notes: Optional[str]
-    structured_update: Optional[dict]
+    # ── Node 4 output — disambiguator ────────────────────────────────────────
+    disambiguated_transcript: str
+    unresolved_terms: list[str]           # terms the disambiguator could not resolve
 
-    # ── Daily brief
-    user_id: Optional[str]
-    brief_sections: Optional[dict]
+    # ── HITL Gate 2 — set by runs router when user submits glossary ──────────
+    gate2_approved: bool
+    final_glossary: list[AcronymEntry]    # user-edited version of acronym_glossary
 
-    # ── Memory
-    memory_entries: list[dict]
-    similar_prior_projects: list[dict]
+    # ── Node 5 output — content_extractor ────────────────────────────────────
+    content_outline: Optional[ContentOutline]
 
-    # ── Control flow
-    human_checkpoint_needed: bool
-    checkpoint_question: Optional[str]
-    checkpoint_response: Optional[str]
-    quality_score: float              # 0.0 to 1.0
-    loop_count: int                   # prevents runaway loops (max 3)
+    # ── HITL Gate 3 — set by runs router when user submits outline ───────────
+    gate3_approved: bool
+    final_outline: Optional[ContentOutline]  # user-edited version of content_outline
+
+    # ── Node 6 output — brief_compiler ───────────────────────────────────────
+    deck_brief_storage_key: Optional[str]    # storage key for .docx
+    deck_handoff_storage_key: Optional[str]  # storage key for .json
+
+    # ── Control flow ─────────────────────────────────────────────────────────
+    current_node: str          # name of the node currently executing
     errors: Annotated[list[str], operator.add]
-    status: str                       # running | complete | failed | awaiting_human
+    status: str
+    # running | awaiting_review_1 | awaiting_review_2 | awaiting_review_3
+    # | compiling | complete | failed

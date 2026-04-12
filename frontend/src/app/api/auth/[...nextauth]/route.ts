@@ -1,6 +1,3 @@
-// Phase 1 stub — NextAuth.js v5 credentials provider
-// Full implementation in Phase 2 when backend auth is wired
-
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 
@@ -29,16 +26,13 @@ const { handlers } = NextAuth({
 
           if (!res.ok) return null;
 
-          const { user } = await res.json() as { user: { id: string; name: string; email: string } };
-          return user;
+          const data = await res.json() as { user: { id: string; name: string; email: string }; token: string };
+          // Return user + backend JWT so callbacks can expose it as accessToken
+          return { ...data.user, accessToken: data.token };
         } catch {
-          // Phase 1: allow mock login for development
+          // Development fallback
           if (credentials.email === 'achyuth@crowe.com') {
-            return {
-              id: 'user1',
-              name: 'Achyuth',
-              email: 'achyuth@crowe.com',
-            };
+            return { id: 'user1', name: 'Achyuth', email: 'achyuth@crowe.com', accessToken: 'dev-token' };
           }
           return null;
         }
@@ -50,6 +44,20 @@ const { handlers } = NextAuth({
   },
   session: {
     strategy: 'jwt',
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      // On initial sign-in, user contains the authorize() return value
+      if (user) {
+        token.accessToken = (user as typeof user & { accessToken: string }).accessToken;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Expose the backend token on the session object
+      (session as typeof session & { accessToken: string }).accessToken = token.accessToken as string;
+      return session;
+    },
   },
 });
 

@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import Script from 'next/script';
 import { ThemeInitializer } from '@/components/layout/ThemeInitializer';
+import { Providers } from '@/components/layout/Providers';
 import './globals.css';
 
 // Plus Jakarta Sans is loaded via CSS variable fallback when Google Fonts
@@ -46,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased">
         <ThemeInitializer />
-        {children}
+        <Providers>{children}</Providers>
         <Script
           id="sw-register"
           strategy="afterInteractive"

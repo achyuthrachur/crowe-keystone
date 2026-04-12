@@ -46,7 +46,7 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 
 class RunAgentRequest(BaseModel):
     agent_type: str
-    project_id: str | None = None
+    engagement_id: str | None = None
     input_data: dict = {}
 
 
@@ -79,78 +79,18 @@ class RespondToCheckpointResponse(BaseModel):
 # Graph routing helper
 # ---------------------------------------------------------------------------
 
-_VALID_AGENT_TYPES = {
-    "brief_generator",
-    "prd_drafter",
-    "stress_tester",
-    "conflict_detector",
-    "daily_brief_generator",
-    "update_writer",
-    "approval_router",
-    "retro_generator",
-    "memory_indexer",
-}
+_VALID_AGENT_TYPES: set[str] = {"keystone_pipeline"}
 
 
 def _select_graph(agent_type: str):
     """
     Returns the appropriate compiled LangGraph graph for the given agent_type.
-    Import is deferred to avoid circular imports and to keep startup fast.
+    _VALID_AGENT_TYPES is empty — Phase C will define Debrief graphs and refill it.
     """
-    from src.graph.keystone_graph import (
-        build_conflict_detector_graph,
-        build_daily_brief_graph,
-        build_prd_architect_graph,
-        build_approval_routing_graph,
+    raise NotImplementedError(
+        f"No graph defined for agent_type '{agent_type}'. "
+        "Phase C will implement Debrief graphs and refill _VALID_AGENT_TYPES."
     )
-    from src.config import settings
-
-    if agent_type in ("brief_generator", "prd_drafter", "stress_tester"):
-        return build_prd_architect_graph(database_url=settings.DATABASE_URL_SYNC)
-
-    if agent_type == "conflict_detector":
-        return build_conflict_detector_graph()
-
-    if agent_type == "daily_brief_generator":
-        return build_daily_brief_graph()
-
-    if agent_type == "approval_router":
-        return build_approval_routing_graph()
-
-    # retro_generator: generate retrospective, then persist to retrospectives table
-    if agent_type == "retro_generator":
-        from src.graph.nodes.retro_generator import retro_generator_node
-        from src.graph.nodes.retro_persister import retro_persister_node
-        from langgraph.graph import StateGraph, END
-        g = StateGraph(KeystoneState)
-        g.add_node("retro_generator", retro_generator_node)
-        g.add_node("retro_persister", retro_persister_node)
-        g.set_entry_point("retro_generator")
-        g.add_edge("retro_generator", "retro_persister")
-        g.add_edge("retro_persister", END)
-        return g.compile()
-
-    # memory_indexer: index published retrospective into team memory
-    if agent_type == "memory_indexer":
-        from src.graph.nodes.memory_indexer import memory_indexer_node
-        from langgraph.graph import StateGraph, END
-        g = StateGraph(KeystoneState)
-        g.add_node("memory_indexer", memory_indexer_node)
-        g.set_entry_point("memory_indexer")
-        g.add_edge("memory_indexer", END)
-        return g.compile()
-
-    # update_writer: generate structured update, then persist to project.build_log
-    from src.graph.nodes.update_writer import update_writer_node
-    from src.graph.nodes.build_log_persister import build_log_persister_node
-    from langgraph.graph import StateGraph, END
-    g = StateGraph(KeystoneState)
-    g.add_node("update_writer", update_writer_node)
-    g.add_node("build_log_persister", build_log_persister_node)
-    g.set_entry_point("update_writer")
-    g.add_edge("update_writer", "build_log_persister")
-    g.add_edge("build_log_persister", END)
-    return g.compile()
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +238,7 @@ async def create_agent_run(
         id=uuid.UUID(run_id),
         team_id=uuid.UUID(team_id),
         agent_type=payload.agent_type,
-        project_id=uuid.UUID(payload.project_id) if payload.project_id else None,
+        project_id=None,
         triggered_by=uuid.UUID(user_id),
         trigger_event="api_request",
         input_summary=input_summary,
@@ -310,36 +250,31 @@ async def create_agent_run(
     # ── Build initial LangGraph state ──────────────────────────────────────
     initial_state: KeystoneState = {
         "run_id": run_id,
-        "agent_type": payload.agent_type,
-        "project_id": payload.project_id,
+        "engagement_id": payload.input_data.get("engagement_id", ""),
         "team_id": team_id,
         "triggered_by": user_id,
-        "raw_input": payload.input_data.get("raw_input", ""),
-        "input_type": payload.input_data.get("input_type", "spark"),
-        "context": payload.input_data.get("context", {}),
-        "brief": None,
-        "prd_draft": None,
-        "prd_version": 1,
-        "hypotheses": [],
-        "adversarial_findings": [],
-        "assumption_audit": [],
-        "stress_test_confidence": 0.0,
-        "all_project_states": payload.input_data.get("all_project_states", []),
-        "detected_conflicts": [],
-        "approval_type": payload.input_data.get("approval_type"),
-        "approval_chain": [],
-        "approval_context_summary": "",
-        "raw_build_notes": payload.input_data.get("raw_build_notes"),
-        "structured_update": None,
-        "user_id": payload.input_data.get("user_id", user_id),
-        "brief_sections": None,
-        "memory_entries": [],
-        "similar_prior_projects": [],
-        "human_checkpoint_needed": False,
-        "checkpoint_question": None,
-        "checkpoint_response": None,
-        "quality_score": 0.0,
-        "loop_count": 0,
+        "client_name": payload.input_data.get("client_name", ""),
+        "client_industry": payload.input_data.get("client_industry", ""),
+        "transcript_storage_key": payload.input_data.get("transcript_storage_key", ""),
+        "preread_storage_key": payload.input_data.get("preread_storage_key"),
+        "agenda_storage_key": payload.input_data.get("agenda_storage_key"),
+        "clean_transcript": "",
+        "filtered_transcript": "",
+        "removed_segments": [],
+        "gate1_approved": False,
+        "gate1_restored_segments": [],
+        "client_context_profile": {},
+        "acronym_glossary": [],
+        "disambiguated_transcript": "",
+        "unresolved_terms": [],
+        "gate2_approved": False,
+        "final_glossary": [],
+        "content_outline": None,
+        "gate3_approved": False,
+        "final_outline": None,
+        "deck_brief_storage_key": None,
+        "deck_handoff_storage_key": None,
+        "current_node": "transcript_ingester",
         "errors": [],
         "status": "running",
     }
@@ -357,7 +292,7 @@ async def create_agent_run(
                 "data": {
                     "run_id": run_id,
                     "agent_type": payload.agent_type,
-                    "project_id": payload.project_id,
+                    "engagement_id": payload.engagement_id,
                 },
             },
         )

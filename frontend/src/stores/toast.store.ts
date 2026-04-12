@@ -5,6 +5,7 @@ export interface Toast {
   title: string;
   body: string;
   type: 'info' | 'success' | 'warning' | 'error';
+  action?: { label: string; href: string };
 }
 
 interface ToastState {

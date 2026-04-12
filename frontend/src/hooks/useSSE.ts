@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createSSEConnection } from '@/lib/sse';
-import { useGraphStore } from '@/stores/graph.store';
 import { useNotificationStore } from '@/stores/notifications.store';
 import { useAgentStore } from '@/stores/agent.store';
 import { useToastStore } from '@/stores/toast.store';
 import { mutate } from 'swr';
-import type { Stage } from '@/lib/stage-colors';
+
 import type { AgentRun } from '@/types/agent.types';
 import type { Approval } from '@/types/approval.types';
 
@@ -23,13 +22,6 @@ export function useSSE(): UseSSEResult {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const closeRef = useRef<(() => void) | null>(null);
 
-  const {
-    updateNodeStage,
-    updateNodeData,
-    addConflictEdge,
-    removeConflictEdge,
-    addNode,
-  } = useGraphStore();
   const { addApproval, addUrgent, removeApproval } = useNotificationStore();
   const { addRun, updateRunNode, setCheckpoint, completeRun, failRun } = useAgentStore();
   const addToast = useToastStore((s) => s.addToast);
@@ -44,79 +36,10 @@ export function useSSE(): UseSSEResult {
         setIsReconnecting(false);
       },
 
-      onProjectCreated: (event) => {
-        addNode({
-          id: event.data.project_id,
-          type: 'project',
-          position: { x: 0, y: 0 }, // dagre will re-layout on next render
-          data: {
-            id: event.data.project_id,
-            title: event.data.title,
-            stage: event.data.stage as Stage,
-            has_conflicts: false,
-            is_agent_active: false,
-            stack: [],
-            effort_estimate: null,
-            updated_at: new Date().toISOString(),
-          },
-        });
-      },
-
-      onProjectStageChanged: (event) => {
-        updateNodeStage(event.data.project_id, event.data.new_stage as Stage);
-        // Notify inbox and revalidate project data so UI reflects new stage
-        useNotificationStore.getState().add({
-          id: `stage-${event.data.project_id}-${event.data.new_stage}-${Date.now()}`,
-          type: 'info',
-          title: `${event.data.title} → ${event.data.new_stage}`,
-          created_at: new Date().toISOString(),
-        });
-        void mutate(`${BACKEND_URL}/api/v1/projects/${event.data.project_id}`);
-      },
-
-      onConflictDetected: (event) => {
-        addConflictEdge(
-          event.data.conflict_id,
-          event.data.project_a_id,
-          event.data.project_b_id
-        );
-        // Optimistically mark both nodes as conflicted so the graph reflects it immediately
-        updateNodeData(event.data.project_a_id, { has_conflicts: true });
-        updateNodeData(event.data.project_b_id, { has_conflicts: true });
-        addUrgent({
-          id: `conflict-${event.data.conflict_id}`,
-          type: 'error',
-          title: '⚠ Conflict detected',
-          body: event.data.specific_conflict,
-          created_at: new Date().toISOString(),
-          url: `/inbox`,
-        });
-        addToast({
-          title: '⚠ Conflict detected',
-          body: event.data.specific_conflict,
-          type: 'error',
-        });
-      },
-
-      onConflictResolved: (event) => {
-        removeConflictEdge(event.data.conflict_id);
-        // Optimistically clear has_conflicts on both affected nodes.
-        // We can't know at the SSE level whether either project still has other open
-        // conflicts — the next SWR graph fetch will reconcile the true state.
-        // The conflict edge carries the project IDs in its data; we look them up from
-        // the current store snapshot so we avoid closing over stale references.
-        const { edges } = useGraphStore.getState();
-        const resolvedEdge = edges.find((e) => e.id === `conflict-${event.data.conflict_id}`);
-        if (resolvedEdge) {
-          updateNodeData(resolvedEdge.source, { has_conflicts: false });
-          updateNodeData(resolvedEdge.target, { has_conflicts: false });
-        }
-        addToast({
-          title: 'Conflict resolved',
-          body: 'The conflict has been resolved.',
-          type: 'success',
-        });
-      },
+      onProjectCreated: () => {},
+      onProjectStageChanged: () => {},
+      onConflictDetected: () => {},
+      onConflictResolved: () => {},
 
       onApprovalRequested: (event) => {
         const approval: Approval = {
@@ -176,10 +99,6 @@ export function useSSE(): UseSSEResult {
           completed_at: null,
         };
         addRun(run);
-        // Reflect active agent state on the graph node immediately
-        if (event.data.project_id) {
-          updateNodeData(event.data.project_id, { is_agent_active: true });
-        }
       },
 
       onAgentNodeEntered: (event) => {
@@ -202,12 +121,6 @@ export function useSSE(): UseSSEResult {
 
       onAgentCompleted: (event) => {
         completeRun(event.data.run_id, event.data.output_summary, event.data.tokens_used);
-        // Clear agent-active indicator on the graph node.
-        // Resolve the project_id from the run record stored in agent.store.
-        const completedRun = useAgentStore.getState().runs[event.data.run_id];
-        if (completedRun?.project_id) {
-          updateNodeData(completedRun.project_id, { is_agent_active: false });
-        }
       },
 
       onAgentFailed: (event) => {
@@ -261,8 +174,6 @@ export function useSSE(): UseSSEResult {
       closeRef.current = null;
     };
   }, [
-    addConflictEdge,
-    addNode,
     addRun,
     addToast,
     addUrgent,
@@ -270,10 +181,7 @@ export function useSSE(): UseSSEResult {
     removeApproval,
     completeRun,
     failRun,
-    removeConflictEdge,
     setCheckpoint,
-    updateNodeData,
-    updateNodeStage,
     updateRunNode,
   ]);
 

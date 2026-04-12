@@ -38,17 +38,19 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
-    # Conflict detection threshold (cosine similarity)
-    CONFLICT_THRESHOLD: float = 0.75
+    # File storage backend: local | azure_blob | supabase
+    # local:       writes to /tmp/keystone-uploads/ (development only)
+    # azure_blob:  Azure Blob Storage (production)
+    # supabase:    Supabase Storage (test)
+    FILE_STORAGE_BACKEND: str = "local"
 
-    # GitHub webhook secret (optional — if set, validates X-Hub-Signature-256)
-    GITHUB_WEBHOOK_SECRET: str = ""
+    # Azure Blob Storage — production only
+    AZURE_STORAGE_CONNECTION_STRING: str = ""
+    AZURE_STORAGE_CONTAINER: str = "keystone-uploads"
 
-    # Email (Resend)
-    RESEND_API_KEY: str = ""
-
-    # Registration mode: 'open' or 'invite_only'
-    REGISTRATION_MODE: str = "open"
+    # Supabase storage — test environment only
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
@@ -63,6 +65,14 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.ENVIRONMENT.lower() == "development"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() == "production"
+
+    @property
+    def is_test(self) -> bool:
+        return self.ENVIRONMENT.lower() == "test"
 
 
 @lru_cache()
