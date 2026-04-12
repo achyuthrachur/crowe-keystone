@@ -52,30 +52,19 @@ export function TopBar({ onMenuToggle, sidebarOpen }: TopBarProps) {
       )}
 
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <div
-          style={{
-            width: 20,
-            height: 20,
-            background: 'var(--amber-core)',
-            borderRadius: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 12,
-            fontWeight: 800,
-            color: 'var(--text-inverse)',
-            fontFamily: 'var(--font-geist-sans)',
-          }}
-        >
-          K
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <img
+          src='/crowe-logo-white.svg'
+          alt='Crowe'
+          style={{ height: 20, width: 'auto', display: 'block' }}
+        />
         <span
           style={{
             fontSize: 14,
             fontWeight: 600,
-            color: 'var(--text-primary)',
+            color: 'var(--text-secondary)',
             fontFamily: 'var(--font-geist-sans)',
+            letterSpacing: '0.02em',
           }}
         >
           Keystone

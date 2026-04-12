@@ -80,12 +80,10 @@ export default function LoginPage() {
           style={{ width: '100%', maxWidth: 400 }}
         >
           {/* Logo (mobile only — shown on narrow viewport when left panel is hidden) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 32 }}>
-            <div style={{ width: 32, height: 32, background: 'var(--amber-core)', borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, fontWeight: 800, color: 'var(--indigo-dark)' }}>K</div>
-            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)',
-              fontFamily: 'var(--font-display)' }}>Keystone</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+            <img src='/crowe-logo-white.svg' alt='Crowe' style={{ height: 24, width: 'auto' }} />
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-secondary)',
+              fontFamily: 'var(--font-geist-sans)', letterSpacing: '0.02em' }}>Keystone</span>
           </div>
 
           <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)',
