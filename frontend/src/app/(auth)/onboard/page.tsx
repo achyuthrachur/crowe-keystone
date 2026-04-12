@@ -12,7 +12,7 @@ export default function OnboardPage() {
     e.preventDefault();
     setSubmitting(true);
     setTimeout(() => {
-      window.location.href = '/projects';
+      window.location.href = '/engagements';
     }, 800);
   };
 

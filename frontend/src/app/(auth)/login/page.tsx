@@ -26,7 +26,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       if (typeof window !== 'undefined') localStorage.setItem('keystone_token', data.token);
-      router.push('/projects');
+      router.push('/engagements');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign in failed';
       if (msg.includes('401') || msg.includes('Invalid')) {

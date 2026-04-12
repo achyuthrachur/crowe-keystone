@@ -64,7 +64,7 @@ function RegisterForm() {
       });
       if (typeof window !== 'undefined') localStorage.setItem('keystone_token', data.token);
       setSuccess(true);
-      setTimeout(() => router.push('/projects'), 1500);
+      setTimeout(() => router.push('/engagements'), 1500);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Registration failed';
       if (msg.includes('409') || msg.includes('already exists')) {
@@ -87,7 +87,7 @@ function RegisterForm() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--teal)', marginBottom: 8 }}>
             Account created!
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Redirecting to your projects...</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Redirecting to your engagements...</p>
         </div>
       </div>
     );
