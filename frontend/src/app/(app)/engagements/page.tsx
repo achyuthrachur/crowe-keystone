@@ -3,22 +3,19 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useKeystoneStore } from '@/stores/keystone.store';
 import { useKeystoneSSE } from '@/hooks/useKeystoneSSE';
 import { KanbanBoard } from '@/components/keystone/KanbanBoard';
+import { useAuthStore } from '@/stores/auth.store';
 
 export default function EngagementsPage() {
-  const { data: session } = useSession();
+  const token = useAuthStore((s) => s.token) ?? '';
   const router = useRouter();
   const { fetchEngagements, engagements, engagementsLoading } = useKeystoneStore();
   useKeystoneSSE();
-
-  // next-auth v5 doesn't expose accessToken by default — cast to extended session shape
-  const token = (session as unknown as { accessToken?: string })?.accessToken;
 
   useEffect(() => {
     if (token) {

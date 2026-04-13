@@ -3,25 +3,22 @@
 export const dynamic = 'force-dynamic';
 
 import { use, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { useKeystoneStore } from '@/stores/keystone.store';
 import { useKeystoneSSE } from '@/hooks/useKeystoneSSE';
 import { PipelineStepper } from '@/components/keystone/PipelineStepper';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface Props { params: Promise<{ id: string }> }
 
 export default function EngagementDetailPage({ params }: Props) {
   const { id } = use(params);
-  const { data: session } = useSession();
+  const token = useAuthStore((s) => s.token) ?? '';
   const router = useRouter();
   const { fetchEngagement, fetchDocuments, fetchRun, activeEngagement, detailLoading } = useKeystoneStore();
   useKeystoneSSE();
-
-  // Same cast as kanban page — next-auth v5 doesn't expose accessToken by default
-  const token = (session as unknown as { accessToken?: string })?.accessToken ?? '';
 
   useEffect(() => {
     if (!token || !id) return;

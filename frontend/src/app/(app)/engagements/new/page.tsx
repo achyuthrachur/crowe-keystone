@@ -3,20 +3,19 @@
 export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useKeystoneStore } from '@/stores/keystone.store';
+import { useAuthStore } from '@/stores/auth.store';
 import { TranscriptDropzone } from '@/components/keystone/TranscriptDropzone';
 import { Spinner } from '@/components/keystone/Spinner';
 import type { Engagement } from '@/types/keystone.types';
 
 export default function NewEngagementPage() {
-  const { data: session } = useSession();
+  const token = useAuthStore((s) => s.token) ?? '';
   const router = useRouter();
   const { createEngagement, uploadDocument } = useKeystoneStore();
-  const token = (session as unknown as { accessToken?: string })?.accessToken ?? '';
 
   // Form state
   const [clientName, setClientName] = useState('');
