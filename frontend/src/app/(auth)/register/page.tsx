@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { authPageVariants } from '@/lib/motion';
 import { apiRequest } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth.store';
 
 function PasswordStrength({ password }: { password: string }) {
   const strength = password.length === 0 ? 0
@@ -33,6 +34,7 @@ function RegisterForm() {
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get('token');
   const shouldReduce = useReducedMotion();
+  const setToken = useAuthStore((s) => s.setToken);
 
   const [inviteCtx, setInviteCtx] = useState<InviteContext | null>(null);
   const [inviteError, setInviteError] = useState('');
@@ -58,11 +60,11 @@ function RegisterForm() {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
-      const data = await apiRequest<{ token: string }>('/auth/register', {
+      const data = await apiRequest<{ token: string; user: { id: string; email: string; name: string; role: string; team_id: string | null } }>('/auth/register', {
         method: 'POST',
         body: JSON.stringify({ email, name, password, invite_token: inviteToken || undefined }),
       });
-      if (typeof window !== 'undefined') localStorage.setItem('keystone_token', data.token);
+      setToken(data.token, data.user);
       setSuccess(true);
       setTimeout(() => router.push('/engagements'), 1500);
     } catch (err: unknown) {
@@ -229,7 +231,7 @@ function RegisterForm() {
 
           <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-tertiary)' }}>
             Already have an account?{' '}
-            <a href="/auth/login" style={{ color: 'var(--amber-core)', textDecoration: 'none' }}>
+            <a href="/login" style={{ color: 'var(--amber-core)', textDecoration: 'none' }}>
               Sign in
             </a>
           </p>

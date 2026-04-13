@@ -6,10 +6,12 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { authPageVariants } from '@/lib/motion';
 import { apiRequest } from '@/lib/api';
+import { useAuthStore } from '@/stores/auth.store';
 
 export default function LoginPage() {
   const router = useRouter();
   const shouldReduce = useReducedMotion();
+  const setToken = useAuthStore((s) => s.setToken);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,11 +23,11 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await apiRequest<{ token: string; user: { id: string } }>('/auth/login', {
+      const data = await apiRequest<{ token: string; user: { id: string; email: string; name: string; role: string; team_id: string | null } }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      if (typeof window !== 'undefined') localStorage.setItem('keystone_token', data.token);
+      setToken(data.token, data.user);
       router.push('/engagements');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign in failed';
@@ -172,7 +174,7 @@ export default function LoginPage() {
 
           <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text-tertiary)' }}>
             {"Don't have an account? "}
-            <a href="/auth/register" style={{ color: 'var(--amber-core)', textDecoration: 'none' }}>
+            <a href="/register" style={{ color: 'var(--amber-core)', textDecoration: 'none' }}>
               Create account
             </a>
           </p>
