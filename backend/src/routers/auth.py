@@ -2,8 +2,9 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -90,6 +91,23 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+
+async def get_current_user_optional(
+    token: Optional[str] = Query(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Like get_current_user but also accepts the JWT as a ?token= query param.
+
+    EventSource (used for SSE) cannot send custom headers, so the browser must
+    pass the JWT in the URL instead of an Authorization header.  We fabricate
+    an HTTPAuthorizationCredentials object from the query param and delegate to
+    the normal get_current_user validation.
+    """
+    if credentials is None and token:
+        credentials = HTTPAuthorizationCredentials(scheme="bearer", credentials=token)
+    return await get_current_user(credentials=credentials, db=db)
 
 
 # ---------------------------------------------------------------------------

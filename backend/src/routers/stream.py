@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from src.models.user import User
-from src.routers.auth import get_current_user
+from src.routers.auth import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ async def _event_generator(team_id: str, user_id: str):
     response_class=StreamingResponse,
 )
 async def stream(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
 ) -> StreamingResponse:
     team_id = str(current_user.team_id) if current_user.team_id else f"no-team-{current_user.id}"
     user_id = str(current_user.id)

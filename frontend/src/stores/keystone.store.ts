@@ -63,7 +63,7 @@ interface KeystoneState {
   clearRunLog: () => void;
 }
 
-export const useKeystoneStore = create<KeystoneState>((set) => ({
+export const useKeystoneStore = create<KeystoneState>((set, get) => ({
   engagements: [],
   engagementsLoading: false,
   engagementsError: null,
@@ -163,6 +163,8 @@ export const useKeystoneStore = create<KeystoneState>((set) => ({
     }
     const doc: UploadedDocument = await res.json();
     set((s) => ({ activeDocuments: [...s.activeDocuments, doc] }));
+    // Refresh engagement so status advances to 'ready' before the user can click Run
+    await get().fetchEngagement(engagementId, token);
     return doc;
   },
 
@@ -175,6 +177,16 @@ export const useKeystoneStore = create<KeystoneState>((set) => ({
       const err = await res.json().catch(() => ({}));
       throw new Error((err as { detail?: string }).detail ?? 'Failed to start run');
     }
+    // Optimistic update — show running UI immediately without waiting for SSE
+    set((s) => ({
+      activeEngagement:
+        s.activeEngagement?.id === engagementId
+          ? { ...s.activeEngagement, status: 'running' as EngagementStatus }
+          : s.activeEngagement,
+      engagements: s.engagements.map((e) =>
+        e.id === engagementId ? { ...e, status: 'running' as EngagementStatus } : e
+      ),
+    }));
   },
 
   submitGate1: async (engagementId, restoredIds, token) => {

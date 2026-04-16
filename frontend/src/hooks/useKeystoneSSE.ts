@@ -4,9 +4,9 @@
 // Listens for Keystone SSE events and dispatches to store + toasts.
 
 import { useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useKeystoneStore } from '@/stores/keystone.store';
 import { useToastStore } from '@/stores/toast.store';
+import { useAuthStore } from '@/stores/auth.store';
 import type { EngagementStatus } from '@/types/keystone.types';
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
@@ -20,7 +20,7 @@ const GATE_LABELS: Record<string, string> = {
 };
 
 export function useKeystoneSSE() {
-  const { data: session } = useSession();
+  const token = useAuthStore((s) => s.token);
   const handleStatusChanged = useKeystoneStore((s) => s.handleStatusChanged);
   const setRunCurrentNode = useKeystoneStore((s) => s.setRunCurrentNode);
   const appendRunLog = useKeystoneStore((s) => s.appendRunLog);
@@ -29,10 +29,11 @@ export function useKeystoneSSE() {
   const addToast = useToastStore((s) => s.addToast);
 
   useEffect(() => {
-    if (!session?.user) return;
+    if (!token) return;
 
-    // Use same auth pattern as useSSE.ts — withCredentials (cookie-based session)
-    const es = new EventSource(`${API}/api/v1/stream`, { withCredentials: true });
+    // EventSource cannot send custom headers, so the JWT is passed as a query param.
+    // The backend /stream endpoint accepts ?token= for this reason.
+    const es = new EventSource(`${API}/api/v1/stream?token=${encodeURIComponent(token)}`);
 
     es.onmessage = (event) => {
       try {
@@ -84,5 +85,5 @@ export function useKeystoneSSE() {
     };
 
     return () => es.close();
-  }, [session?.user, handleStatusChanged, setRunCurrentNode, appendRunLog, clearRunLog, engagements, addToast]);
+  }, [token, handleStatusChanged, setRunCurrentNode, appendRunLog, clearRunLog, engagements, addToast]);
 }
