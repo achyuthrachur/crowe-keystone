@@ -34,7 +34,7 @@ export function createSSEConnection(url: string, handlers: SSEHandlers): () => v
 
   function connect() {
     if (closed) return;
-    eventSource = new EventSource(url, { withCredentials: true });
+    eventSource = new EventSource(url);
 
     eventSource.onopen = () => {
       backoffMs = 1000; // reset backoff on successful connection

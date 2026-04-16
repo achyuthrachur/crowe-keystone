@@ -5,6 +5,7 @@ import { createSSEConnection } from '@/lib/sse';
 import { useNotificationStore } from '@/stores/notifications.store';
 import { useAgentStore } from '@/stores/agent.store';
 import { useToastStore } from '@/stores/toast.store';
+import { useAuthStore } from '@/stores/auth.store';
 import { mutate } from 'swr';
 
 import type { AgentRun } from '@/types/agent.types';
@@ -22,12 +23,14 @@ export function useSSE(): UseSSEResult {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const closeRef = useRef<(() => void) | null>(null);
 
+  const token = useAuthStore((s) => s.token);
   const { addApproval, addUrgent, removeApproval } = useNotificationStore();
   const { addRun, updateRunNode, setCheckpoint, completeRun, failRun } = useAgentStore();
   const addToast = useToastStore((s) => s.addToast);
 
   useEffect(() => {
-    const url = `${BACKEND_URL}/api/v1/stream`;
+    if (!token) return;
+    const url = `${BACKEND_URL}/api/v1/stream?token=${encodeURIComponent(token)}`;
 
     const close = createSSEConnection(url, {
       onConnected: (_data) => {
@@ -174,6 +177,7 @@ export function useSSE(): UseSSEResult {
       closeRef.current = null;
     };
   }, [
+    token,
     addRun,
     addToast,
     addUrgent,
