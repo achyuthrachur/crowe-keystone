@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useAuthStore } from '@/stores/auth.store';
 import { useKeystoneStore } from '@/stores/keystone.store';
 import { KanbanColumn } from './KanbanColumn';
 import { EngagementCard } from './EngagementCard';
@@ -99,9 +99,7 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ engagements, loading }: KanbanBoardProps) {
-  const { data: rawSession } = useSession();
-  // next-auth v5 doesn't expose accessToken by default — cast to extended session shape
-  const token = (rawSession as unknown as { accessToken?: string })?.accessToken;
+  const token = useAuthStore((s) => s.token) ?? '';
   const { handleStatusChanged } = useKeystoneStore();
   const [draggingId, setDraggingId] = useState<string | null>(null);
 

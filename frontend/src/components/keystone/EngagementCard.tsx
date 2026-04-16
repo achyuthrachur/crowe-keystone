@@ -1,13 +1,15 @@
 'use client';
 
-import { CSSProperties } from 'react';
+import { CSSProperties, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FileText, Upload, Play, Eye, CheckCircle2, XCircle } from 'lucide-react';
+import { FileText, Upload, Play, Eye, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { StatusBadge, STATUS_LABELS } from './StatusBadge';
 import { PipelineStepIndicator } from './PipelineStepIndicator';
+import { useAuthStore } from '@/stores/auth.store';
+import { useKeystoneStore } from '@/stores/keystone.store';
 import type { Engagement, EngagementStatus } from '@/types/keystone.types';
 
 // ── Status visual config ──────────────────────────────────────────────────────
@@ -64,6 +66,9 @@ interface EngagementCardProps {
 
 export function EngagementCard({ engagement, isDragging = false, style }: EngagementCardProps) {
   const router = useRouter();
+  const token = useAuthStore((s) => s.token) ?? '';
+  const { deleteEngagement } = useKeystoneStore();
+  const [deleting, setDeleting] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: sortableDragging } =
     useSortable({ id: engagement.id });
 
@@ -162,16 +167,40 @@ export function EngagementCard({ engagement, isDragging = false, style }: Engage
 
         {/* Footer row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-tertiary)' }}>
-          {/* Attendees — truncated */}
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {engagement.attendees || '—'}
           </span>
-
-          {/* Time elapsed */}
-          <span style={{ flexShrink: 0 }}>
-            {timeAgo(engagement.updated_at)}
-          </span>
+          <span style={{ flexShrink: 0 }}>{timeAgo(engagement.updated_at)}</span>
         </div>
+
+        {/* Delete button — only on failed engagements */}
+        {isFailed && (
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (!confirm(`Delete "${engagement.client_name}"? This cannot be undone.`)) return;
+              setDeleting(true);
+              try { await deleteEngagement(engagement.id, token); } finally { setDeleting(false); }
+            }}
+            disabled={deleting}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%', height: 32, borderRadius: 6,
+              border: '1px solid var(--border-coral)',
+              background: deleting ? 'var(--surface-overlay)' : 'transparent',
+              color: deleting ? 'var(--text-tertiary)' : 'var(--coral)',
+              fontSize: 12, fontWeight: 500,
+              cursor: deleting ? 'not-allowed' : 'pointer',
+              transition: 'background 150ms',
+            }}
+            onMouseEnter={(e) => { if (!deleting) e.currentTarget.style.background = 'var(--coral-glow)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Trash2 size={12} />
+            {deleting ? 'Deleting…' : 'Delete engagement'}
+          </button>
+        )}
       </motion.div>
     </div>
   );
