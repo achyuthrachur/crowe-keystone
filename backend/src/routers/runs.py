@@ -27,7 +27,92 @@ router = APIRouter(prefix="/engagements", tags=["runs"])
 
 # ── Background graph tasks ────────────────────────────────────────────────────
 
-async def _invoke_graph(initial_state: dict, config: dict) -> None:
+# Maps the node that the graph interrupts *before* → the engagement status to set.
+_INTERRUPT_STATUS: dict[str, str] = {
+    "research_agent":    "awaiting_review_1",
+    "content_extractor": "awaiting_review_2",
+    "brief_compiler":    "awaiting_review_3",
+}
+
+
+async def _settle_graph(
+    engagement_id: str,
+    team_id: str,
+    run_id: str,
+    old_status: str,
+) -> None:
+    """After astream finishes, inspect the graph checkpoint and write the
+    correct engagement + run status to the DB and broadcast the SSE event.
+
+    Called by both _invoke_graph (after initial run) and _resume_graph (after
+    gate resume).  Never raises — logs errors instead.
+    """
+    from src.graph.keystone_graph import keystone_graph
+    from src.database import AsyncSessionLocal
+    from src.models.engagement import Engagement
+    from src.models.keystone_run import KeystoneRun
+    from sqlalchemy import update as sa_update
+    import uuid as _uuid
+
+    config = {"configurable": {"thread_id": run_id}}
+    try:
+        snapshot = await keystone_graph.aget_state(config)
+    except Exception as exc:
+        logger.exception("aget_state failed for run %s: %s", run_id, exc)
+        snapshot = None
+
+    if snapshot is not None and snapshot.next:
+        # Graph paused at an interrupt_before node — advance to gate status.
+        new_status = _INTERRUPT_STATUS.get(snapshot.next[0], "failed")
+        graph_state_dict = dict(snapshot.values) if snapshot.values else {}
+    elif snapshot is not None and snapshot.values.get("status") == "failed":
+        new_status = "failed"
+        graph_state_dict = dict(snapshot.values)
+    elif snapshot is not None and not snapshot.next:
+        # Graph ran to END — pipeline complete.
+        new_status = "complete"
+        graph_state_dict = dict(snapshot.values) if snapshot.values else {}
+    else:
+        new_status = "failed"
+        graph_state_dict = {}
+
+    terminal = new_status in ("complete", "failed")
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                sa_update(Engagement)
+                .where(Engagement.id == _uuid.UUID(engagement_id))
+                .values(status=new_status, updated_at=datetime.now(tz=timezone.utc))
+            )
+            run_vals: dict = {"status": new_status, "graph_state": graph_state_dict}
+            if terminal:
+                run_vals["completed_at"] = datetime.now(tz=timezone.utc)
+            await db.execute(
+                sa_update(KeystoneRun)
+                .where(KeystoneRun.id == _uuid.UUID(run_id))
+                .values(**run_vals)
+            )
+            await db.commit()
+    except Exception as exc:
+        logger.exception("DB update failed after graph settle (run %s): %s", run_id, exc)
+
+    await broadcast_to_team(team_id, {
+        "type": "keystone.status_changed",
+        "data": {
+            "engagement_id": engagement_id,
+            "old_status": old_status,
+            "new_status": new_status,
+        },
+    })
+
+
+async def _invoke_graph(
+    initial_state: dict,
+    config: dict,
+    engagement_id: str,
+    team_id: str,
+    run_id: str,
+) -> None:
     """Run the LangGraph pipeline. Catches all exceptions — never raises."""
     from src.graph.keystone_graph import keystone_graph
     try:
@@ -35,9 +120,21 @@ async def _invoke_graph(initial_state: dict, config: dict) -> None:
             pass  # Node SSE broadcasts happen inside the nodes themselves
     except Exception as exc:
         logger.exception("Graph invocation failed: %s", exc)
+        await broadcast_to_team(team_id, {
+            "type": "keystone.status_changed",
+            "data": {"engagement_id": engagement_id, "old_status": "running", "new_status": "failed"},
+        })
+        return
+    await _settle_graph(engagement_id, team_id, run_id, "running")
 
 
-async def _resume_graph(config: dict) -> None:
+async def _resume_graph(
+    config: dict,
+    engagement_id: str,
+    team_id: str,
+    run_id: str,
+    old_status: str,
+) -> None:
     """Resume a paused LangGraph pipeline from its checkpoint. Never raises."""
     from src.graph.keystone_graph import keystone_graph
     try:
@@ -45,6 +142,12 @@ async def _resume_graph(config: dict) -> None:
             pass
     except Exception as exc:
         logger.exception("Graph resume failed: %s", exc)
+        await broadcast_to_team(team_id, {
+            "type": "keystone.status_changed",
+            "data": {"engagement_id": engagement_id, "old_status": old_status, "new_status": "failed"},
+        })
+        return
+    await _settle_graph(engagement_id, team_id, run_id, old_status)
 
 
 @router.post(
@@ -141,7 +244,10 @@ async def start_run(
         "status": "running",
     }
     config = {"configurable": {"thread_id": str(run.id)}}
-    background_tasks.add_task(_invoke_graph, initial_state, config)
+    background_tasks.add_task(
+        _invoke_graph, initial_state, config,
+        str(engagement_id), str(current_user.team_id), str(run.id),
+    )
 
     return StartRunResponse(
         run_id=run.id,
@@ -211,7 +317,10 @@ async def submit_gate1(
         "gate1_approved": True,
         "gate1_restored_segments": payload.restored_segment_ids,
     })
-    background_tasks.add_task(_resume_graph, config)
+    background_tasks.add_task(
+        _resume_graph, config,
+        str(engagement_id), str(current_user.team_id), str(run.id), "running",
+    )
 
     return RunStatusResponse(
         run_id=run.id, engagement_id=engagement_id,
@@ -252,7 +361,10 @@ async def submit_gate2(
         "gate2_approved": True,
         "final_glossary": [g.model_dump() for g in payload.glossary],
     })
-    background_tasks.add_task(_resume_graph, config)
+    background_tasks.add_task(
+        _resume_graph, config,
+        str(engagement_id), str(current_user.team_id), str(run.id), "running",
+    )
 
     return RunStatusResponse(
         run_id=run.id, engagement_id=engagement_id,
@@ -293,7 +405,10 @@ async def submit_gate3(
         "gate3_approved": True,
         "final_outline": payload.outline.model_dump(),
     })
-    background_tasks.add_task(_resume_graph, config)
+    background_tasks.add_task(
+        _resume_graph, config,
+        str(engagement_id), str(current_user.team_id), str(run.id), "compiling",
+    )
 
     return RunStatusResponse(
         run_id=run.id, engagement_id=engagement_id,
