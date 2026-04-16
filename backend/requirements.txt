@@ -7,6 +7,7 @@ pydantic>=2.10.0
 pydantic-settings>=2.7.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+bcrypt==4.0.1
 openai>=1.58.0
 langgraph>=0.2.50
 langchain>=0.3.0
