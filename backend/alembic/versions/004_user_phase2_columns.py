@@ -26,49 +26,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("users", sa.Column(
-        "email_verified",
-        sa.Boolean(),
-        nullable=False,
-        server_default=sa.text("false"),
-    ))
-    op.add_column("users", sa.Column(
-        "invite_token", sa.Text(), nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "invite_expires_at",
-        sa.TIMESTAMP(timezone=True),
-        nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "invited_by",
-        postgresql.UUID(as_uuid=True),
-        sa.ForeignKey("users.id"),
-        nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "vercel_access_token", sa.Text(), nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "vercel_user_id", sa.Text(), nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "vercel_user_name", sa.Text(), nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "vercel_team_id", sa.Text(), nullable=True,
-    ))
-    op.add_column("users", sa.Column(
-        "theme_preference",
-        sa.Text(),
-        nullable=False,
-        server_default=sa.text("'dark'"),
-    ))
-    op.add_column("users", sa.Column(
-        "last_seen_at",
-        sa.TIMESTAMP(timezone=True),
-        nullable=True,
-    ))
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_token TEXT")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_expires_at TIMESTAMPTZ")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_by UUID REFERENCES users(id)")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vercel_access_token TEXT")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vercel_user_id TEXT")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vercel_user_name TEXT")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS vercel_team_id TEXT")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_preference TEXT NOT NULL DEFAULT 'dark'")
+    op.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ")
 
 
 def downgrade() -> None:
