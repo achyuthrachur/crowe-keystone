@@ -152,17 +152,20 @@ export function KanbanBoard({ engagements, loading }: KanbanBoardProps) {
       onDragStart={(e) => setDraggingId(e.active.id as string)}
       onDragEnd={handleDragEnd}
     >
-      {/* Horizontal scroll container */}
+      {/* Horizontal scroll container — fills viewport minus topbar + page header */}
       <div
         style={{
           display: 'flex',
           gap: 12,
           overflowX: 'auto',
-          paddingBottom: 16,
-          flex: 1,
-          alignItems: 'flex-start',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
+          overflowY: 'hidden',
+          // Concrete height so columns can stretch: 56px topbar + 32px padding-top +
+          // ~60px page header + 24px gap + 32px padding-bottom = 204px chrome
+          height: 'calc(100vh - 204px)',
+          alignItems: 'stretch',
+          paddingBottom: 8,
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'var(--border-subtle) transparent',
         }}
       >
         {KANBAN_COLUMNS.map((column) => {
