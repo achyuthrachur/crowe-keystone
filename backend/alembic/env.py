@@ -21,7 +21,11 @@ database_url = os.environ.get("DATABASE_URL", "")
 if database_url:
     url = database_url.replace("postgresql://", "postgresql+asyncpg://")
     url = url.replace("postgresql+asyncpg+asyncpg://", "postgresql+asyncpg://")
-    config.set_main_option("sqlalchemy.url", url)
+    # configparser (used internally by alembic) treats % as an interpolation
+    # character. Any % in the URL (e.g. %40 for @ in a password) must be
+    # doubled to %% so configparser stores it correctly. get_main_option()
+    # automatically undoubles %% → % when the value is read back.
+    config.set_main_option("sqlalchemy.url", url.replace('%', '%%'))
 
 # Import models for autogenerate
 from src.database import Base  # noqa: F401, E402
