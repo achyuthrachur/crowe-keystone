@@ -7,7 +7,6 @@ import { EngagementCard } from './EngagementCard';
 import { EngagementCardSkeleton } from './EngagementCardSkeleton';
 import type { Engagement, KanbanColumn as KanbanColumnType } from '@/types/keystone.types';
 
-const COLUMN_MIN_WIDTH = 200;
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
@@ -21,9 +20,8 @@ export function KanbanColumn({ column, cards, loading }: KanbanColumnProps) {
   return (
     <div
       style={{
-        flex: '1 1 220px',
-        minWidth: COLUMN_MIN_WIDTH,
-        maxWidth: 320,
+        flex: 1,
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 10,
