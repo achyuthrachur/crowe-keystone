@@ -49,6 +49,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeInitializer />
         <Providers>{children}</Providers>
         <Script
+          id="backend-ping"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `fetch('${process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8000'}/api/v1/health').catch(function(){});`,
+          }}
+        />
+        <Script
           id="sw-register"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{

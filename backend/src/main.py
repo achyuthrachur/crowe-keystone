@@ -92,6 +92,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
+    allow_origin_regex=r"https://[^/]+\.vercel\.app|http://localhost(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -149,10 +150,22 @@ async def agent_rate_limiter(request: Request, call_next):
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
-    return JSONResponse(
+    response = JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An internal server error occurred. Please try again later."},
     )
+    # This handler runs inside ServerErrorMiddleware (outermost), which is outside
+    # CORSMiddleware — so CORS headers are never added automatically to 500 responses.
+    # We must add them manually so the browser can read the error body cross-origin.
+    import re as _re
+    origin = request.headers.get("origin", "")
+    if origin and (
+        origin in settings.allowed_origins_list
+        or _re.match(r"https://[^/]+\.vercel\.app$|http://localhost(:\d+)?$", origin)
+    ):
+        response.headers["access-control-allow-origin"] = origin
+        response.headers["access-control-allow-credentials"] = "true"
+    return response
 
 
 # ---------------------------------------------------------------------------
