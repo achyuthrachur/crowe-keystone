@@ -111,6 +111,56 @@ async def get_current_user_optional(
 
 
 # ---------------------------------------------------------------------------
+# JWT-only auth — no DB lookup, safe for long-lived connections like SSE.
+# The JWT already contains user_id (sub) and team_id as claims so there is
+# no need to hit the database just to validate the stream connection.
+# ---------------------------------------------------------------------------
+from dataclasses import dataclass  # noqa: E402
+
+
+@dataclass
+class JWTUser:
+    """Minimal user info derived from JWT claims only — no DB lookup needed."""
+    id: str
+    team_id: str | None
+
+
+async def get_jwt_user(
+    token: Optional[str] = Query(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> JWTUser:
+    """Validate JWT and return user info from claims — no DB dependency.
+
+    Use this (instead of get_current_user) for long-lived endpoints such as
+    SSE streams where holding a DB session open would cause idle-timeout errors.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    raw_token = token
+    if credentials:
+        raw_token = credentials.credentials
+    if not raw_token:
+        raise credentials_exception
+
+    try:
+        payload = jwt.decode(
+            raw_token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+        user_id: str | None = payload.get("sub")
+        team_id: str | None = payload.get("team_id")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    return JWTUser(id=user_id, team_id=team_id)
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
