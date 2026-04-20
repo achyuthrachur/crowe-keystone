@@ -19,6 +19,7 @@ class RunStatusResponse(BaseModel):
     error: Optional[str]
     created_at: datetime
     completed_at: Optional[datetime]
+    graph_state: Optional[Any] = None  # full LangGraph state — used by gate panels
 
     model_config = {"from_attributes": True}
 

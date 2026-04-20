@@ -48,27 +48,24 @@ async def research_agent_node(state: KeystoneState) -> dict:
     try:
         client = AsyncOpenAI()
 
-        # OpenAI Responses API with web_search_preview
-        response = await client.responses.create(
+        response = await client.chat.completions.create(
             model=KEYSTONE_MODEL,
-            instructions=_PROMPT,
-            input=(
-                f"Research this client:\n"
-                f"Client name: {state['client_name']}\n"
-                f"Industry: {state['client_industry']}"
-            ),
-            tools=[{"type": "web_search_preview"}],
+            messages=[
+                {"role": "system", "content": _PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Research this client:\n"
+                        f"Client name: {state['client_name']}\n"
+                        f"Industry: {state['client_industry']}"
+                    ),
+                },
+            ],
             temperature=0.2,
+            response_format={"type": "json_object"},
         )
 
-        # Extract the text output from the response
-        raw = ""
-        for block in response.output:
-            if hasattr(block, "content"):
-                for content_item in block.content:
-                    if hasattr(content_item, "text"):
-                        raw += content_item.text
-
+        raw = response.choices[0].message.content or "{}"
         result = _ResearchResult.model_validate_json(raw)
 
         acronym_glossary: list[AcronymEntry] = []

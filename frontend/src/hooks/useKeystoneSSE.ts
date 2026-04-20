@@ -22,6 +22,8 @@ const GATE_LABELS: Record<string, string> = {
 export function useKeystoneSSE() {
   const token = useAuthStore((s) => s.token);
   const handleStatusChanged = useKeystoneStore((s) => s.handleStatusChanged);
+  const fetchRun = useKeystoneStore((s) => s.fetchRun);
+  const activeEngagement = useKeystoneStore((s) => s.activeEngagement);
   const setRunCurrentNode = useKeystoneStore((s) => s.setRunCurrentNode);
   const appendRunLog = useKeystoneStore((s) => s.appendRunLog);
   const clearRunLog = useKeystoneStore((s) => s.clearRunLog);
@@ -61,6 +63,16 @@ export function useKeystoneSSE() {
             clearRunLog();
           }
 
+          // Re-fetch run with fresh graph_state so gate panels can display results.
+          // Only fetch for the engagement currently open in the detail view.
+          if (
+            token &&
+            activeEngagement?.id === engagement_id &&
+            (new_status.startsWith('awaiting_review') || new_status === 'complete')
+          ) {
+            fetchRun(engagement_id, token);
+          }
+
           // Show toast for gate-ready and terminal statuses
           if (GATE_LABELS[new_status]) {
             const engagement = engagements.find((e) => e.id === engagement_id);
@@ -85,5 +97,5 @@ export function useKeystoneSSE() {
     };
 
     return () => es.close();
-  }, [token, handleStatusChanged, setRunCurrentNode, appendRunLog, clearRunLog, engagements, addToast]);
+  }, [token, handleStatusChanged, fetchRun, activeEngagement, setRunCurrentNode, appendRunLog, clearRunLog, engagements, addToast]);
 }

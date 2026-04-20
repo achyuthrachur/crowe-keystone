@@ -282,6 +282,7 @@ async def get_latest_run(
         error=run.error,
         created_at=run.created_at,
         completed_at=run.completed_at,
+        graph_state=graph_state,
     )
 
 
